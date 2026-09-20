@@ -14,6 +14,11 @@ go.sum
 .terraform.lock.hcl
 coverage.xml
 
+# Generated contract schemas. `serialize_document` is their formatting authority and the contract test
+# tier (`python scripts/export_contract_schemas.py --check`) compares the files byte for byte, so
+# reformatting them here would turn a passing contract gate into a failure.
+packages/contracts/schemas/
+
 # Vendored and generated directories
 node_modules/
 .venv/
