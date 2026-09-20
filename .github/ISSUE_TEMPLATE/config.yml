@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/security/advisories/new
+    about: Never disclose vulnerabilities in a public issue. Report them privately using a GitHub security advisory, or follow SECURITY.md.
+  - name: Security policy and supported versions
+    url: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/blob/main/SECURITY.md
+    about: Scope, response targets and safe-harbour terms for security research.
+  - name: Contributing guide
+    url: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/blob/main/CONTRIBUTING.md
+    about: Commit conventions, testing tiers, definition of done and review requirements.
+  - name: Documentation index
+    url: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/tree/main/docs
+    about: Architecture, ADRs, runbooks, SLOs, threat model and governance documentation.

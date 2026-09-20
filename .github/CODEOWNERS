@@ -1,0 +1,42 @@
+# CODEOWNERS — https://docs.github.com/repos/using-codeowners
+#
+# Path owners are requested automatically on pull requests. At least one owner of every changed path
+# must approve before merge (see docs/18-governance.md for the required branch-protection settings).
+# Security- and production-impacting paths are owned explicitly so they cannot be changed silently.
+
+# Default owner for everything in the repository
+*                                                   @Kaoserahamed
+
+# Repository governance and CI/CD: workflow changes can bypass or weaken gates
+/.github/                                           @Kaoserahamed
+/Makefile                                           @Kaoserahamed
+/pyproject.toml                                     @Kaoserahamed
+/package.json                                       @Kaoserahamed
+/uv.lock                                            @Kaoserahamed
+/package-lock.json                                  @Kaoserahamed
+/docs/18-governance.md                              @Kaoserahamed
+
+# Agent safety, policy and prompt handling
+/packages/policy/                                   @Kaoserahamed
+/packages/llm/                                      @Kaoserahamed
+/services/incident-agent/                           @Kaoserahamed
+/services/remediation-agent/                        @Kaoserahamed
+/services/worker/                                   @Kaoserahamed
+
+# Human approval, audit and incident lifecycle
+/packages/contracts/                                @Kaoserahamed
+/services/api/                                      @Kaoserahamed
+/migrations/                                        @Kaoserahamed
+
+# Infrastructure and security configuration
+/infra/terraform/                                   @Kaoserahamed
+/infra/kubernetes/policies/                         @Kaoserahamed
+/infra/kubernetes/overlays/production/               @Kaoserahamed
+/observability/alerts/                              @Kaoserahamed
+/observability/prometheus/                          @Kaoserahamed
+
+# Security documentation and threat model
+/SECURITY.md                                        @Kaoserahamed
+/docs/10-security.md                                @Kaoserahamed
+/docs/11-threat-model.md                            @Kaoserahamed
+/docs/adr/                                          @Kaoserahamed

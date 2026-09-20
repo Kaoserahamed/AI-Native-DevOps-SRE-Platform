@@ -1,0 +1,83 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit*.xml
+report.xml
+
+# Node / web
+node_modules/
+.next/
+out/
+.eslintcache
+*.tsbuildinfo
+npm-debug.log*
+coverage/
+
+# Go
+/vendor/
+
+# Terraform: never commit state, plans, or downloaded providers
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# NOTE: .terraform.lock.hcl is intentionally committed for reproducibility.
+
+# Kubernetes / Helm local artifacts
+rendered/
+*.rendered.yaml
+helm-charts/
+charts/*.tgz
+
+# Test and tool artifacts
+tests/**/evidence/
+tests/**/artifacts/
+tests/**/temp/
+.trivy/
+syft/
+sbom/
+*.sarif
+gitleaks-report.json
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

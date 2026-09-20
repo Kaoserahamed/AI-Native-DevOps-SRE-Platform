@@ -1,0 +1,59 @@
+# Normalize all text files to LF in the repository, regardless of developer OS.
+* text=auto eol=lf
+
+# Explicit text types
+*.md text
+*.mdx text
+*.py text
+*.pyi text
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.mjs text
+*.cjs text
+*.json text
+*.jsonc text
+*.yml text
+*.yaml text
+*.toml text
+*.ini text
+*.cfg text
+*.sh text
+*.ps1 text
+*.sql text
+*.go text
+*.tf text
+*.tfvars text
+*.rego text
+Makefile text
+Dockerfile text
+*.dockerfile text
+
+# Windows-only scripts keep CRLF so they run in legacy shells
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files must never be normalized or diffed as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.zip binary
+*.gz binary
+*.tar binary
+
+# Lockfiles are generated: keep them out of diffs and review via their source of truth
+uv.lock -diff linguist-generated
+package-lock.json -diff linguist-generated
+go.sum -diff linguist-generated
+.terraform.lock.hcl -diff linguist-generated
+
+# Mark generated artifacts as vendored so language statistics stay meaningful
+docs/diagrams/*.svg linguist-documentation
+observability/grafana/dashboards/*.json linguist-generated

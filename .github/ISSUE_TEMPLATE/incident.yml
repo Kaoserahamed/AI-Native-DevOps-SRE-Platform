@@ -1,0 +1,102 @@
+name: Incident
+description: Record a production or staging incident and its follow-up actions
+title: "incident: <service> — <symptom>"
+labels:
+  - incident
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for real incidents affecting staging or production, and for the
+        retrospective of a failed deployment or rollback. The platform also opens incident issues
+        automatically for agent-detected incidents; this template is for human-reported ones.
+
+  - type: input
+    id: incident_id
+    attributes:
+      label: Incident ID
+      description: Platform incident ID if one exists (for example INC-2026-0007), otherwise "new".
+      placeholder: INC-2026-0007
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Sev1 = customer-visible outage, Sev2 = major degradation, Sev3 = minor or internal.
+      options:
+        - SEV1
+        - SEV2
+        - SEV3
+    validations:
+      required: true
+
+  - type: input
+    id: service
+    attributes:
+      label: Affected service
+      description: Service name and environment (for example demo-api, staging).
+    validations:
+      required: true
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline (UTC)
+      description: Detection, acknowledgement, mitigation, resolution, with timestamps.
+      placeholder: |
+        - 10:42 detected by alert HighErrorRate
+        - 10:45 acknowledged by on-call
+        - 10:58 mitigated by rollback to previous revision
+        - 11:12 resolved
+    validations:
+      required: true
+
+  - type: textarea
+    id: telemetry
+    attributes:
+      label: Telemetry evidence
+      description: Bounded evidence links or snippets — metrics, logs, traces, Kubernetes events, recent deployments. Keep it small and redacted; the agent must not ingest unbounded telemetry.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: Suspected or confirmed root cause
+      description: State confidence and what evidence supports it, or "unknown/insufficient evidence".
+    validations:
+      required: true
+
+  - type: textarea
+    id: actions
+    attributes:
+      label: Mitigation and remediation
+      description: Actions taken, approvals obtained, rollback performed, and the PR or issue references.
+    validations:
+      required: true
+
+  - type: textarea
+    id: followups
+    attributes:
+      label: Follow-up actions
+      description: Preventive work with owners — detection gaps, runbook updates, tests, budget review.
+      value: |
+        - [ ] Runbook updated
+        - [ ] Alert or SLO review
+        - [ ] Test or fixture added to prevent recurrence
+        - [ ] Chase-down issue filed
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: All production-changing actions performed during this incident had explicit human approval and are auditable.
+          required: true
+        - label: This issue contains no secrets or customer data.
+          required: true

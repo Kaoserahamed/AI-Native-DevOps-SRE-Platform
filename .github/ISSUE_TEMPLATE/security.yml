@@ -1,0 +1,82 @@
+name: Security concern
+description: Track a security hardening task or a non-sensitive security finding (never disclose exploits here)
+title: "security: <short summary>"
+labels:
+  - security
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Stop — do not report vulnerabilities here.**
+
+        If you have found an exploitable vulnerability, suspected credential exposure, or a privacy
+        issue, report it privately using the "Report a vulnerability" link (GitHub private security
+        advisories) or by following [SECURITY.md](../SECURITY.md). Public issues are world-readable and
+        an unpatched vulnerability could be exploited immediately.
+
+        Use this template only for non-sensitive security work, for example:
+        a hardening task, a scanner finding with no exploit path, a policy or least-privilege change,
+        a threat-model gap, or an audit-log improvement.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What security weakness, control gap or hardening opportunity is this about?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Least privilege / RBAC / IAM
+        - Secret management
+        - Dependency or container vulnerability
+        - Infrastructure as code hardening
+        - Agent safety (prompt injection, tool authorization, approval bypass)
+        - Audit, logging and detection
+        - Data protection and retention
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Estimated severity
+      description: Use the highest plausible impact. If it could be Critical or High, report privately instead.
+      options:
+        - Low
+        - Medium
+        - Not yet assessed
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What could an attacker achieve, under which preconditions? Explain why this is not an exploitable vulnerability if that is the case.
+    validations:
+      required: true
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Proposed remediation
+      description: Concrete changes (config, code, policy, manifest) plus tests or detection that would verify them.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: This issue contains no exploit details, secrets or customer data.
+          required: true
+        - label: I have not disclosed this publicly elsewhere.
+          required: true

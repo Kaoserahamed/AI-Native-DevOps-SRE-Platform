@@ -1,0 +1,81 @@
+name: Bug report
+description: Report incorrect behaviour in the platform, demo app, infrastructure or CI
+title: "fix: <short summary>"
+labels:
+  - bug
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Do not include secrets, tokens, kubeconfigs or production data in this
+        issue. Redact credentials from logs and screenshots.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is wrong, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands, manifest paths or UI steps. Include the documented verification command when relevant.
+      placeholder: |
+        1. uv sync --frozen --all-extras
+        2. uv run test
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, metrics, traces, correlation IDs, CI run URL, exit codes. Redact secrets.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, container digest or commit SHA.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local development (docker compose)
+        - CI (GitHub Actions)
+        - Kubernetes development overlay
+        - Kubernetes staging overlay
+        - Kubernetes production overlay
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and severity
+      description: Who or what is affected, whether an incident should be opened, and any workaround.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: This report contains no secrets or personal data.
+          required: true
+        - label: This is not a security vulnerability (those are reported per SECURITY.md).
+          required: true

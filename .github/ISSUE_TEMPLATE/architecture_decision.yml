@@ -1,0 +1,90 @@
+name: Architecture decision (ADR)
+description: Propose a significant technical decision that should be recorded as an ADR
+title: "adr: <decision summary>"
+labels:
+  - architecture
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for decisions that shape the architecture, trust boundaries, data model, agent safety
+        model, or long-term operability. Once agreed, the decision is recorded in `docs/adr/` as a
+        numbered, immutable document (see `docs/adr/0000-template.md`).
+
+  - type: input
+    id: title
+    attributes:
+      label: Decision title
+      description: Short, decision-oriented statement.
+      placeholder: Use Kustomize overlays instead of Helm for environment configuration
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Proposed status
+      options:
+        - Proposed
+        - Accepted (already agreed in review)
+        - Supersedes an existing ADR
+    validations:
+      required: true
+
+  - type: input
+    id: supersedes
+    attributes:
+      label: Supersedes
+      description: ADR number this decision replaces, or "none".
+      placeholder: ADR-0004
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: The forces at play — requirements, constraints, cost, operational maturity, team size, existing platform choices. Include relevant SLO or incident history.
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision
+      description: What exactly is being decided, in the active voice ("We will ...").
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: At least two credible options with the trade-offs that led to rejecting them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: Positive, negative and neutral outcomes; what becomes easier or harder; migration and rollback implications.
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Security, privacy and agent impact
+      description: Trust boundaries, credentials, permissions, egress, data retention, agent tooling or approval-model changes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: How the decision will be validated
+      description: Tests, CI gates, dashboards, or operational evidence that confirms the decision is working.
+    validations:
+      required: true

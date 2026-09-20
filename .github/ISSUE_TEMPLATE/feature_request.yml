@@ -1,0 +1,87 @@
+name: Feature request
+description: Propose a new capability or improvement to the platform
+title: "feat: <short summary>"
+labels:
+  - enhancement
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a change. Please keep proposals verifiable: describe the behaviour,
+        the evidence that would prove it works, and the risks introduced.
+        For vulnerabilities use the security template instead — never disclose details publicly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this solve, and who is affected? Include the operational or SRE context.
+      placeholder: Detection of 5xx spikes currently requires a human to correlate deployments manually.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behaviour you want, including interfaces, configuration and data flow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches, and why the proposal is preferred. If infrastructure or a new dependency is involved, describe the cost.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options:
+        - Demo application (backend/frontend)
+        - Kubernetes platform
+        - Terraform infrastructure
+        - Observability (OTel, Prometheus, Grafana)
+        - Incident lifecycle / API
+        - AI agents (detection, diagnosis, remediation)
+        - Governance, policy, approvals, audit
+        - GitHub automation
+        - CI/CD and release
+        - Documentation and runbooks
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A checklist that CI or a reviewer can verify, including test expectations.
+      value: |
+        - [ ] Behaviour implemented
+        - [ ] Unit tests added
+        - [ ] Contract/integration tests added where applicable
+        - [ ] Documentation updated
+        - [ ] CI green including security gates
+    validations:
+      required: true
+
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and safety considerations
+      description: New input sources, credentials, permissions, egress, agent tool changes, or "none".
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I agree to follow the Code of Conduct.
+          required: true
