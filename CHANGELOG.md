@@ -61,6 +61,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   frontend-smoke`): builds the standalone output, boots the production entrypoint against an in-process
   stub backend, and asserts the served page, its static assets, the `/api` proxy and `X-Request-ID`
   propagation.
+- Hardened application containers: multi-stage Dockerfiles for the demo API (`services/demo_api/Dockerfile`)
+  and the frontend (`apps/demo-app/frontend/Dockerfile`), a non-root `app` user (uid 10001) in both, pin
+  the `uv` tool and the base images, expose OCI provenance labels fed by `APP_VERSION`/`VCS_REF`, define
+  health checks that need no extra packages, keep all build tooling out of the runtime stage, and exclude
+  secrets, local state and generated output through a root `.dockerignore`.
 
 ### Fixed
 

@@ -114,3 +114,44 @@ Unit tests never need a running backend: they stub `fetch` with the deterministi
 
 The coverage gate is enforced by `vitest.config.ts` thresholds (85% statements, branches, functions and
 lines) and runs as part of `npm run verify`.
+
+## Containers
+
+Both components ship a multi-stage Dockerfile. The build context is always the **repository root**, because
+the backend belongs to the single Python project and the frontend is an npm workspace whose dependencies
+are hoisted:
+
+```bash
+make build-images                                              # both images
+docker build -f services/demo_api/Dockerfile -t demo-api:dev .   # backend only
+docker build -f apps/demo-app/frontend/Dockerfile -t demo-frontend:dev .   # frontend only
+```
+
+| Property | Demo API image | Frontend image |
+| --- | --- | --- |
+| Base | `python:3.12-slim-bookworm` | `node:20.19-bookworm-slim` |
+| Stages | `builder` (uv resolves the locked environment) → `runtime` | `dependencies` (`npm ci`) → `builder` (`next build`) → `runtime` |
+| Runtime user | `app`, uid 10001, no home directory | `app`, uid 10001, no home directory |
+| Entrypoint | `python -m services.demo_api` | `node apps/demo-app/frontend/server.js` |
+| Health check | `GET /health` through the Python runtime | `GET /` through `node -e fetch` |
+| Labels | OCI title, description, version, revision, licenses, source | same |
+
+Design decisions worth knowing:
+
+- **No build tooling in the runtime stage.** `uv`, npm and the Next.js compiler exist only while building;
+  the runtime receives the resolved virtual environment or the traced standalone server, so there is no
+  compiler, no package cache and no way to install anything at run time.
+- **Read-only-friendly.** `PYTHONDONTWRITEBYTECODE=1` keeps the API from writing `.pyc` files and the
+  frontend serves a pre-built bundle. When the Kubernetes phase enables `readOnlyRootFilesystem`, the only
+  path that may still need a writable volume is the Next.js cache directory (`/app/.next/cache`).
+- **`uv` is pinned to an exact version installed from PyPI**, not fetched by a floating install script, so
+  a rebuild resolves the same tool.
+- **Provenance through build arguments.** `APP_VERSION` and `VCS_REF` become OCI labels, so an image can be
+  traced to the commit that produced it; release tags are immutable (see `CHANGELOG.md`).
+- **No secrets are copied.** `.dockerignore` excludes `.env` files, keys, kubeconfigs and Terraform state,
+  and both images read all configuration from the environment at run time.
+
+The frontend image's `COPY` paths depend on the standalone layout produced by tracing from the repository
+root; `tests/e2e/smoke.mjs` verifies that layout against a real build. Vulnerability scanning (Trivy),
+SBOM generation and image publication run in the container workflow once it lands (Task 16.5), so image
+builds are currently a local step (`make build-images`) rather than part of `make verify`.

@@ -65,6 +65,21 @@ The `make` targets are the canonical entry points; CI runs the same underlying c
 | Frontend production smoke test | `make frontend-smoke` | `next build`, then the standalone entrypoint against an in-process stub backend |
 | Everything CI runs on a pull request | `make verify` | every fast gate above |
 
+### Container builds
+
+Image builds require Docker 24+ and are deliberately outside the fast gate: they take minutes, and CI
+builds, scans and publishes them in the container job.
+
+```bash
+make build-images                                                        # both application images
+docker build -f services/demo_api/Dockerfile -t demo-api:dev .           # demo API
+docker build -f apps/demo-app/frontend/Dockerfile -t demo-frontend:dev . # demo frontend
+```
+
+Both Dockerfiles use the repository root as their build context (the Python project and the npm workspace
+both live there); `.dockerignore` keeps local state, secrets and generated output out of that context.
+Image scanning, SBOM generation and publication are part of the container workflow (Task 16.5).
+
 ### Windows equivalents
 
 `make` is not installed by default on Windows. Run the same steps directly with PowerShell:

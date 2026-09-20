@@ -1,0 +1,73 @@
+# Build context for the application images. Keep it small: a large context slows every build and can
+# leak local state into a layer. The context is the repository root because the demo API is part of the
+# single Python project and the frontend is an npm workspace whose dependencies are hoisted.
+#
+# Never excluded, because the builds need them:
+#   pyproject.toml, uv.lock, README.md, LICENSE   (Python project metadata)
+#   package.json, package-lock.json, tsconfig.base.json
+#   packages/, services/, scripts/, apps/demo-app/frontend/
+
+# Version control and editor state
+.git
+.gitignore
+.gitattributes
+.github
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# Secrets and local configuration: these must never reach an image layer
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# Python local state
+.venv
+**/__pycache__
+**/*.py[cod]
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+
+# Node local state and build output
+**/node_modules
+**/.next
+**/out
+**/dist
+**/build
+**/coverage
+.eslintcache
+*.tsbuildinfo
+
+# Infrastructure, observability and documentation: validated by their own tools, unused by the builds
+infra
+observability
+docs
+tests
+AI_Native_DevOps_SRE_DataFactor_Agentic_Task_List.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+Makefile
+compose*.yaml
+compose*.yml
+
+# Terraform state, plans and downloaded providers (never in an image)
+**/.terraform
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+.terraform.lock.hcl

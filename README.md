@@ -39,7 +39,7 @@ The platform is built incrementally. This table tracks the phases defined in
 | 0 (Tasks 0.2-0.3) | Tooling standards, reproducible dependencies | Implemented |
 | 1 | Architecture, ADRs, versioned contracts | Implemented |
 | 2 (Tasks 2.1-2.2) | Demo production application: FastAPI service, Next.js frontend | Implemented |
-| 2 (Task 2.3) | Hardened application containers | Planned |
+| 2 (Task 2.3) | Hardened application containers | Implemented |
 | 3-4 | Kubernetes platform, Terraform infrastructure | Planned |
 | 5-7 | OpenTelemetry, Prometheus/Grafana, SLO/incident model | Planned |
 | 8-12 | AI agent runtime, remediation, governance/audit | Planned |

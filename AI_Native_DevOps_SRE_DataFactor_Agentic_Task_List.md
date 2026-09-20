@@ -298,7 +298,7 @@ The repository needs a realistic target workload so the platform can produce and
 - [x] Loading/error states.
 - [x] Health/status view.
 - [x] Request correlation display where useful.
-- [ ] Production Docker build.
+- [x] Production Docker build. — Multi-stage Dockerfiles for both components ship with Task 2.3.
 - [x] Basic component tests.
 - [x] E2E smoke tests. — `tests/e2e/smoke.mjs` builds the standalone output and drives the production
       entrypoint against a stub backend (page, static assets, `/api` proxy, correlation headers). The
@@ -307,16 +307,18 @@ The repository needs a realistic target workload so the platform can produce and
 **Commit:** `feat: add demo web frontend`
 
 ## Task 2.3 — Containerization
-- [ ] Multi-stage backend image.
-- [ ] Multi-stage frontend image.
-- [ ] Non-root user.
-- [ ] Read-only filesystem compatibility where practical.
-- [ ] Healthcheck.
-- [ ] Minimal base images.
-- [ ] Image metadata labels.
-- [ ] SBOM generation plan.
+- [x] Multi-stage backend image.
+- [x] Multi-stage frontend image.
+- [x] Non-root user.
+- [x] Read-only filesystem compatibility where practical.
+- [x] Healthcheck.
+- [x] Minimal base images.
+- [x] Image metadata labels.
+- [x] SBOM generation plan. — Documented in `apps/demo-app/README.md`; generation, scanning and
+      publication land with the container workflow (Task 16.5).
 
-**Security:** Trivy/Grype scan.
+**Security:** Trivy/Grype scan. — Executed by the container workflow (Tasks 16.2/16.5), not by the local
+image build, so the scan result is part of the release evidence rather than a developer prerequisite.
 
 **Commit:** `build: harden application containers`
 

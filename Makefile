@@ -9,7 +9,11 @@ PYTEST := $(UV) run pytest --cov-fail-under=$(COV_FAIL_UNDER)
 .DEFAULT_GOAL := help
 
 .PHONY: help bootstrap format format-check lint typecheck test test-integration test-agent-eval \
-        policy verify frontend frontend-smoke clean
+        policy verify frontend frontend-smoke build-images clean
+
+APP_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0)
+VCS_REF ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+IMAGE_TAG ?= $(APP_VERSION)
 
 help: ## Show the available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +52,14 @@ frontend: ## Lint, format-check, type-check and test the TypeScript workspaces
 
 frontend-smoke: ## Build the demo frontend and smoke-test the standalone production artifact
 	npm run --silent test:frontend:smoke
+
+build-images: ## Build the demo application images (requires Docker; scanning/publishing runs in CI)
+	docker build -f services/demo_api/Dockerfile \
+		--build-arg APP_VERSION=$(APP_VERSION) --build-arg VCS_REF=$(VCS_REF) \
+		-t demo-api:$(IMAGE_TAG) .
+	docker build -f apps/demo-app/frontend/Dockerfile \
+		--build-arg APP_VERSION=$(APP_VERSION) --build-arg VCS_REF=$(VCS_REF) \
+		-t demo-frontend:$(IMAGE_TAG) .
 
 verify: policy format-check lint typecheck test frontend ## Run every fast gate CI enforces on a pull request
 
