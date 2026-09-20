@@ -34,7 +34,20 @@ classifiers = [
 # Runtime dependencies are added by the phase that introduces them, so each lockfile diff explains
 # itself. The target end state is FastAPI, SQLAlchemy/psycopg, redis, OpenTelemetry, httpx and pydantic;
 # the agent phases add the LLM provider adapters.
-dependencies = ["pydantic>=2.13,<3"]
+dependencies = [
+  "pydantic>=2.13,<3",
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.32,<1",
+  "pydantic-settings>=2.7,<3",
+  "sqlalchemy[asyncio]>=2.0,<3",
+  "asyncpg>=0.29,<1",
+  "redis>=5.0,<6",
+  "prometheus-client>=0.21,<1",
+  "python-json-logger>=3.2,<4",
+  "opentelemetry-api>=1.28,<2",
+  "opentelemetry-sdk>=1.28,<2",
+  "opentelemetry-exporter-otlp>=1.28,<2",
+]
 
 [project.urls]
 Homepage = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform"
@@ -46,19 +59,21 @@ Issues = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/issues"
 # Developer tooling is pinned exactly: `uv sync --frozen --all-extras` must resolve identically on a
 # fresh CI runner and on a developer machine.
 dev = [
-        "jsonschema==4.26.0",
+  "jsonschema==4.26.0",
+  "httpx==0.28.1",
   "mypy==2.3.1",
   "types-jsonschema==4.25.0.20250809",
   "pre-commit==4.6.2",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
+  "aiosqlite==0.20.0",
   "ruff==0.16.8",
 ]
 
 [tool.hatch.build.targets.wheel]
 # Grows with the repository: `packages`, `services` and `apps` are added by the phases that create them.
-packages = ["packages", "scripts"]
+packages = ["packages", "scripts", "services"]
 
 # ---------------------------------------------------------------------------
 # Ruff: formatter and linter (replaces black + flake8 + isort + pyupgrade)
@@ -99,6 +114,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # CLI entry points and scripts report progress to stdout on purpose; library code must use logging.
 "scripts/*.py" = ["T201"]
+"services/**/routes/*.py" = ["B008"]  # FastAPI Requires Depends() in defaults
 "tests/**/*.py" = ["ARG001", "ARG002"]
 
 [tool.ruff.lint.isort]
@@ -120,7 +136,8 @@ docstring-code-format = true
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
-files = ["packages", "scripts", "tests"]
+explicit_package_bases = true
+files = ["packages", "scripts", "services", "tests"]
 strict = true
 warn_unreachable = true
 warn_unused_configs = true
@@ -165,7 +182,7 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["packages", "scripts"]
+source = ["packages", "scripts", "services"]
 omit = ["tests/*", "*/__init__.py"]
 
 [tool.coverage.report]

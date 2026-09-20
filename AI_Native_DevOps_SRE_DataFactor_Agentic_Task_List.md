@@ -278,16 +278,16 @@ Use versioned schemas.
 The repository needs a realistic target workload so the platform can produce and investigate real telemetry.
 
 ## Task 2.1 — FastAPI demo backend
-- [ ] Health endpoint.
-- [ ] Readiness endpoint.
-- [ ] Metrics endpoint.
-- [ ] Structured logging.
-- [ ] Request correlation ID.
-- [ ] PostgreSQL integration.
-- [ ] Redis integration.
-- [ ] One intentionally controllable failure mode behind a test-only flag.
-- [ ] Graceful shutdown.
-- [ ] Configuration validation.
+- [x] Health endpoint.
+- [x] Readiness endpoint.
+- [x] Metrics endpoint.
+- [x] Structured logging.
+- [x] Request correlation ID.
+- [x] PostgreSQL integration.
+- [x] Redis integration.
+- [x] One intentionally controllable failure mode behind a test-only flag.
+- [x] Graceful shutdown.
+- [x] Configuration validation.
 
 **Tests:** unit + API contract + database integration.
 

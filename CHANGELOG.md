@@ -37,6 +37,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   loop, system context and component diagrams, control-plane versus data-plane responsibilities, trust
   boundaries, synchronous/asynchronous interaction matrix and failure-domain analysis
   (`docs/00-overview.md`, `docs/01-architecture.md`).
+- Observable FastAPI demo service: health/readiness probes, Prometheus metrics, structured JSON logs,
+  request correlation IDs, PostgreSQL and Redis integration, a development-only controllable failure
+  mode, graceful shutdown and validated environment configuration, with unit, API contract and
+  database integration tests (`services/demo_api`, `docs/04-configuration.md`, `.env.example`).
 - ADR framework (`docs/adr/`) with a template, an indexed and immutable decision log, and the nine
   foundational decisions: Kubernetes deployment model, OpenTelemetry architecture, Prometheus/Grafana,
   PostgreSQL storage, Redis queue and cache, LLM provider abstraction, human approval model, GitHub
