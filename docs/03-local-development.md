@@ -62,6 +62,7 @@ The `make` targets are the canonical entry points; CI runs the same underlying c
 | Agent evaluation suite | `make test-agent-eval` | `pytest -m agent_eval` |
 | Repository policy | `make policy` | `scripts/check_repo_policy.py` |
 | Frontend lint/format/type-check/tests | `make frontend` | `eslint`, `prettier`, `scripts/typecheck.mjs`, `vitest` with the coverage gate |
+| Frontend production smoke test | `make frontend-smoke` | `next build`, then the standalone entrypoint against an in-process stub backend |
 | Everything CI runs on a pull request | `make verify` | every fast gate above |
 
 ### Windows equivalents
@@ -83,6 +84,7 @@ node node_modules/eslint/bin/eslint.js .
 node node_modules/prettier/bin/prettier.cjs --check .
 node scripts/typecheck.mjs
 node node_modules/vitest/vitest.mjs run --root apps/demo-app/frontend --coverage
+node apps/demo-app/frontend/tests/e2e/smoke.mjs
 ```
 
 

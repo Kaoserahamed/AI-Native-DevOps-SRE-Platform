@@ -47,7 +47,7 @@ not loaded by Next.js from the repository root.
 
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
-| `BACKEND_URL` | no | `http://localhost:8000` | Rewrite target for the `/api/*` proxy that `next.config.ts` creates, and the base URL for requests issued from the Next.js server runtime. |
+| `BACKEND_URL` | no | `http://localhost:8000` | Backend base URL, resolved **at request time** by the `/api` proxy route (and by requests issued from the Next.js server runtime), so one immutable image serves every environment. |
 | `NEXT_PUBLIC_BACKEND_URL` | no | unset | Fallback base URL used when `BACKEND_URL` is unset. The browser never uses it: client components always call same-origin `/api`, so no CORS configuration is required. |
 | `PORT` | no | `3000` | Port for the standalone server produced by `next build` (`node .next/standalone/server.js`). Read by the standalone server, not by the application. |
 | `HOSTNAME` | no | `0.0.0.0` | Bind address for the standalone server. |

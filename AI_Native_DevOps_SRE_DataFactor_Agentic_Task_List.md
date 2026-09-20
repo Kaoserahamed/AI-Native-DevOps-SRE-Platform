@@ -300,7 +300,9 @@ The repository needs a realistic target workload so the platform can produce and
 - [x] Request correlation display where useful.
 - [ ] Production Docker build.
 - [x] Basic component tests.
-- [ ] E2E smoke tests.
+- [x] E2E smoke tests. — `tests/e2e/smoke.mjs` builds the standalone output and drives the production
+      entrypoint against a stub backend (page, static assets, `/api` proxy, correlation headers). The
+      browser-driven end-to-end tier that exercises a deployed revision belongs to Phase 15.4/16.6.
 
 **Commit:** `feat: add demo web frontend`
 

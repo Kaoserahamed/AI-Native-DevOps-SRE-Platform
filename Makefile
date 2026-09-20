@@ -9,7 +9,7 @@ PYTEST := $(UV) run pytest --cov-fail-under=$(COV_FAIL_UNDER)
 .DEFAULT_GOAL := help
 
 .PHONY: help bootstrap format format-check lint typecheck test test-integration test-agent-eval \
-        policy verify frontend clean
+        policy verify frontend frontend-smoke clean
 
 help: ## Show the available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -45,6 +45,9 @@ policy: ## Validate repository governance policy
 
 frontend: ## Lint, format-check, type-check and test the TypeScript workspaces
 	npm run --silent verify
+
+frontend-smoke: ## Build the demo frontend and smoke-test the standalone production artifact
+	npm run --silent test:frontend:smoke
 
 verify: policy format-check lint typecheck test frontend ## Run every fast gate CI enforces on a pull request
 
