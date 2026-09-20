@@ -232,12 +232,12 @@ ai-native-devops-sre/
 # 5. Phase 1 — Architecture and Contracts
 
 ## Task 1.1 — Architecture specification
-- [ ] Write system context diagram.
-- [ ] Write container/component diagram.
-- [ ] Document control-plane vs data-plane responsibilities.
-- [ ] Document trust boundaries.
-- [ ] Document sync vs async interactions.
-- [ ] Document failure domains.
+- [x] Write system context diagram.
+- [x] Write container/component diagram.
+- [x] Document control-plane vs data-plane responsibilities.
+- [x] Document trust boundaries.
+- [x] Document sync vs async interactions.
+- [x] Document failure domains.
 
 **Commit:** `docs: define platform architecture`
 

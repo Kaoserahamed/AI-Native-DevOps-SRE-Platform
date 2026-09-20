@@ -33,5 +33,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reproducible dependency management: committed `uv.lock` and `package-lock.json` lockfiles, a documented
   pinning policy and upgrade procedure, and Dependabot configuration with grouped updates and a release
   cooldown for the `uv`, `npm` and `github-actions` ecosystems.
+- Platform overview and architecture specification: purpose, non-goals, engineering principles, control
+  loop, system context and component diagrams, control-plane versus data-plane responsibilities, trust
+  boundaries, synchronous/asynchronous interaction matrix and failure-domain analysis
+  (`docs/00-overview.md`, `docs/01-architecture.md`).
 
 [Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main

@@ -90,19 +90,21 @@ tests/               Cross-cutting contract, integration, e2e, chaos suites and 
 
 ## Documentation
 
-Repository-wide governance documents are available now; the architecture, API, observability, security
-and operations documents are added by the phase that implements them, and are linked here once they
-exist (`docs/00-overview.md`, `docs/01-architecture.md`, `docs/03-local-development.md`,
-`docs/04-configuration.md`, `docs/05-api.md`, `docs/06-data-model.md`, `docs/07-observability.md`,
+Repository-wide governance, architecture and development documents are available now; the remaining
+documents are added by the phase that implements them and linked here once they exist
+(`docs/04-configuration.md`, `docs/05-api.md`, `docs/06-data-model.md`, `docs/07-observability.md`,
 `docs/08-ai-agents.md`, `docs/09-incident-lifecycle.md`, `docs/10-security.md`,
 `docs/11-threat-model.md`, `docs/12-kubernetes.md`, `docs/13-terraform.md`, `docs/14-ci-cd.md`,
 `docs/15-testing-strategy.md`, `docs/16-sre-slos.md`, `docs/17-cost-optimization.md`,
-`docs/19-disaster-recovery.md`, `docs/20-runbooks/`, `docs/adr/`).
+`docs/19-disaster-recovery.md`, `docs/20-runbooks/`).
 
 | Document | Purpose |
 | --- | --- |
+| [docs/00-overview.md](docs/00-overview.md) | Purpose, principles, audience and glossary |
+| [docs/01-architecture.md](docs/01-architecture.md) | Context, components, trust boundaries, failure domains |
 | [docs/03-local-development.md](docs/03-local-development.md) | Supported runtimes, tooling pins, canonical commands |
 | [docs/18-governance.md](docs/18-governance.md) | Branch protection, review and change policy |
+| [docs/adr/](docs/adr/README.md) | Architecture decision records |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose and validate changes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and security expectations |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community expectations and enforcement |
