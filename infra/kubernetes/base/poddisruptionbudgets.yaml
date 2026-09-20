@@ -1,0 +1,41 @@
+# Disruption budgets.
+#
+# Voluntary disruptions — a node drain, a cluster upgrade, the rollout of an unrelated DaemonSet — must never
+# take a workload below one serving pod. Combined with the two-replica baseline this still lets a node be
+# drained, which is the point: the budget protects availability without blocking maintenance.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: demo-api
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  # AlwaysAllow lets a *healthy-looking but broken* pod (a crash-looping one, for example) be evicted
+  # during a drain instead of blocking the drain indefinitely. Availability is still protected by
+  # `minAvailable`, which counts ready pods.
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: demo-web
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  minAvailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-web

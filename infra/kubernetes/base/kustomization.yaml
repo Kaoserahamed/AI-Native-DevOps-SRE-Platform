@@ -1,0 +1,22 @@
+# Kustomize base for the demo workload.
+#
+# Overlays in `../overlays/<environment>/` may only change what an environment legitimately differs in:
+# replica counts, resource sizing, environment-specific configuration and observability settings
+# (ADR-0001). Everything the workload is made of lives here, so a review of `base/` covers the workload
+# itself rather than three near-identical copies of it.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - demo-api-config.yaml
+  - demo-web-config.yaml
+  - serviceaccounts.yaml
+  - demo-api-deployment.yaml
+  - demo-api-service.yaml
+  - demo-web-deployment.yaml
+  - demo-web-service.yaml
+  - ingress.yaml
+  - autoscalers.yaml
+  - poddisruptionbudgets.yaml
+  - networkpolicies.yaml

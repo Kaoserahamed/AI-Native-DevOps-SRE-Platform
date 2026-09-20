@@ -1,0 +1,150 @@
+# Network segmentation for the demo namespace.
+#
+# Deny by default and grant explicit exceptions: a workload added to this namespace later is isolated until
+# someone writes its rules on purpose. Egress follows the same principle, so a compromised container cannot
+# open arbitrary outbound connections.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# The ingress controller is the only source allowed to reach the web pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-web
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: demo-web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # `kubernetes.io/metadata.name` is set automatically on every namespace, so this rule does not
+        # depend on the cluster labelling anything.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+# The frontend's `/api` proxy hop: the API accepts traffic from the web pods and from nothing else.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-to-api
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: demo-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-web
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+# Every pod needs cluster DNS; nothing else is granted to the whole namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# The web pods may open exactly one connection besides DNS: the proxy hop to the API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-egress-to-api
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: demo-web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-api
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+# The API's own dependencies: telemetry and the data stores.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-egress
+  namespace: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: demo-api
+  policyTypes:
+    - Egress
+  egress:
+    # OpenTelemetry collector, once the pipeline exists (Task 5.2). Until then no traffic flows here.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - protocol: TCP
+          port: 4317
+    # PostgreSQL and Redis live outside the cluster as managed services, so the base bounds this rule by
+    # *port* rather than by address: only those two database ports may be reached. Production overlays
+    # replace it with the managed service CIDRs, and the manifest policy tests fail if the production
+    # overlay still allows an unbounded address range.
+    - ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379

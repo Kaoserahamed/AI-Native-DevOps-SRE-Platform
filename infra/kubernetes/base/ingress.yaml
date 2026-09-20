@@ -1,0 +1,36 @@
+# The single public entry point.
+#
+# Everything, including `/api/*`, is routed to the frontend: the browser talks to one origin and the
+# Next.js route handler proxies `/api` to the demo API inside the cluster. Keeping one entry point means one
+# place to terminate TLS, one place to rate-limit and no chance of a browser being able to reach the API
+# directly (docs/12-kubernetes.md).
+#
+# TLS is deliberately absent from the base: certificate material and the issuer belong to the environment,
+# so overlays own them (Task 3.2).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-web
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    # Edge guard rails. The controller itself (and therefore its version) is a cluster dependency, not
+    # something this repository installs.
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-web
+                port:
+                  name: http

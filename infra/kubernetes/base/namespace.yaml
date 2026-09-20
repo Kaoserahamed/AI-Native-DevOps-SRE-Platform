@@ -1,0 +1,15 @@
+# The demo workload's namespace.
+#
+# The name matches the namespace recorded in the platform contracts (`ServiceRef.namespace` and the
+# `namespace` label on alerts), so an alert, the evidence gathered for it and the Kubernetes objects it
+# refers to all speak about the same identifier.
+#
+# Pod Security Standard labels are applied in Task 3.3 together with the workload hardening they enforce,
+# so the namespace never enforces a policy the manifests do not satisfy.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize

@@ -1,0 +1,121 @@
+# Demo frontend Deployment.
+#
+# The frontend is the operator-facing view of the demo workload. It renders the page server-side and calls
+# the demo API from the browser through its own `/api` proxy route, so its probes do not depend on the
+# backend being healthy — a web pod stays ready while the API is degraded, which is exactly when an
+# operator needs the status page to load.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-web
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo-web
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: demo-app
+        app.kubernetes.io/version: "0.1.0"
+    spec:
+      serviceAccountName: demo-web
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: demo-web
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-web
+      containers:
+        - name: demo-web
+          image: ghcr.io/kaoserahamed/demo-web:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: demo-web-config
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # Next.js keeps a build/optimisation cache under `.next/cache`; with a read-only root
+            # filesystem that is the one path the server may still write to (apps/demo-app/README.md).
+            - name: next-cache
+              mountPath: /app/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi

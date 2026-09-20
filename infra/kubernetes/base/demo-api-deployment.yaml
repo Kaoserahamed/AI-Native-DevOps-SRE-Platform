@@ -1,0 +1,142 @@
+# Demo API Deployment — the workload the platform's control loop observes and remediates.
+#
+# Everything an operator or an AI agent needs in order to reason about a change is declared here: probes
+# that separate "alive" from "ready", resource requests and limits, a bounded rollout, and security
+# settings that keep the process unprivileged with a read-only root filesystem.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    # The incident runbooks refer to workloads by this annotation, so an alert and its runbook cannot drift.
+    platform.ai-native.dev/runbook: "docs/20-runbooks/"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  # A rollout must not reduce serving capacity: a new pod is added before an old one leaves. That is what
+  # makes "deploy a faulty revision" a diagnosable incident instead of an outage.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    # The selector only carries the identity label: version and part-of labels change between releases and
+    # a mutable selector makes a Deployment immutable after the fact.
+    matchLabels:
+      app.kubernetes.io/name: demo-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: demo-app
+        app.kubernetes.io/version: "0.1.0"
+      annotations:
+        # Annotation-based scrape discovery keeps the workload independent of Prometheus Operator CRDs and
+        # points at the application's own /metrics route.
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: demo-api
+      automountServiceAccountToken: false
+      # Matches the application's graceful shutdown: in-flight requests finish before the pod disappears.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      # Co-locating every replica on one node turns a single node failure into an outage, so replicas prefer
+      # to stay apart. The spread constraint below keeps the distribution balanced when anti-affinity cannot
+      # be satisfied; both are soft, so a single-node development cluster still schedules.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: demo-api
+      # Spread replicas over nodes when the cluster allows it, without making the workload unschedulable on
+      # a single-node development cluster.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: demo-api
+      containers:
+        - name: demo-api
+          # The release workflow replaces this reference with an immutable digest (Task 17.1); overlays may
+          # pin a digest for production before that workflow exists.
+          image: ghcr.io/kaoserahamed/demo-api:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: demo-api-config
+            - secretRef:
+                # DATABASE_URL and REDIS_URL arrive from here. The base deliberately defines no Secret:
+                # each environment supplies it through its own secret management (docs/12-kubernetes.md).
+                name: demo-api-secrets
+          # A slow first start must not be killed by the liveness probe.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            # Requests and limits are both set: scheduling is predictable and a runaway pod cannot starve
+            # its neighbours on the node.
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # The only writable path. The image disables bytecode writing, so nothing else needs one.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi

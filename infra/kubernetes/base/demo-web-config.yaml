@@ -1,0 +1,21 @@
+# Non-secret configuration for the demo frontend.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-web-config
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+data:
+  # The browser only ever calls same-origin `/api`; the Next.js route handler forwards those requests to
+  # this address inside the cluster at request time (docs/04-configuration.md, apps/demo-app/README.md).
+  BACKEND_URL: http://demo-api:8000
+  NODE_ENV: production
+  NEXT_TELEMETRY_DISABLED: "1"
+  PORT: "3000"
+  # The container runtime sets HOSTNAME to the pod name, so the standalone server is told explicitly to
+  # bind every interface instead of resolving the pod name at startup.
+  HOSTNAME: 0.0.0.0

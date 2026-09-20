@@ -1,0 +1,22 @@
+# ClusterIP only: the demo API is reachable from inside the cluster and through the frontend's `/api`
+# proxy, never directly from outside. Publishing a second public entry point for the same application
+# would widen the attack surface for no operational gain.
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-api
+  namespace: demo
+  labels:
+    app.kubernetes.io/name: demo-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demo-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
