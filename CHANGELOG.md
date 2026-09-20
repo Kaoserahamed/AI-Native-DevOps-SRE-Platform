@@ -69,6 +69,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Blank optional settings no longer fail validation. A ConfigMap key or `.env` entry that is present but
+  empty (`OTEL_ENDPOINT=`, `FAILURE_MODE=`) is treated as "not configured" instead of crash-looping the
+  service, which is how Kubernetes configuration is supplied in practice. Blank values for required
+  settings still fail fast, and non-blank invalid values are still rejected.
 - `npm run format:check` succeeds on a clean checkout: the generated contract schemas are now excluded from
   Prettier, which disagreed with the generator that owns their formatting and therefore failed the gate.
 - The demo frontend now proxies `/api/*` to the demo API at request time instead of relying on a Next.js

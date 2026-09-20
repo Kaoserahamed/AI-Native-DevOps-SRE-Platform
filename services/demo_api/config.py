@@ -93,6 +93,28 @@ class Settings(BaseSettings):
         """Return whether this configuration targets production."""
         return self.app_env is AppEnvironment.PRODUCTION
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_blank_optional_settings(cls, values: object) -> object:
+        """Treat a blank value for an optional setting as "not set".
+
+        ConfigMaps, `.env` files and chart values routinely carry empty strings for keys that are simply
+        not configured in that environment. Rejecting them would turn a harmless empty value into a
+        crash-looping pod, so a blank ``otel_endpoint`` or ``failure_mode`` is normalised to "unset" here,
+        while a blank value for a *required* setting still fails validation.
+        """
+        if not isinstance(values, dict):
+            return values
+
+        normalized = dict(values)
+        for field in ("otel_endpoint", "failure_mode"):
+            for key, value in list(normalized.items()):
+                if key.lower() != field:
+                    continue
+                if isinstance(value, str) and value.strip() == "":
+                    normalized[key] = None
+        return normalized
+
     @model_validator(mode="after")
     def validate_database_url(self) -> Self:
         """Production must use PostgreSQL; SQLite is test-only."""
