@@ -1,0 +1,228 @@
+{
+  "$defs": {
+    "ActionTarget": {
+      "additionalProperties": false,
+      "description": "The exact object an action applies to.",
+      "properties": {
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "namespace": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "resource_kind": {
+          "default": "deployment",
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Resource Kind",
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Image digest, commit SHA or manifest revision the action targets.",
+          "title": "Revision"
+        },
+        "workload": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Workload",
+          "type": "string"
+        }
+      },
+      "required": [
+        "environment",
+        "namespace",
+        "workload"
+      ],
+      "title": "ActionTarget",
+      "type": "object"
+    },
+    "BlastRadius": {
+      "description": "How far an action can reach; drives the required policy result.",
+      "enum": [
+        "single_pod",
+        "workload",
+        "namespace",
+        "cluster",
+        "repository_only"
+      ],
+      "title": "BlastRadius",
+      "type": "string"
+    },
+    "Environment": {
+      "description": "Deployment environment an action or observation applies to.",
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "RemediationCategory": {
+      "description": "The only action classes the platform may ever propose.",
+      "enum": [
+        "restart_or_rollout",
+        "rollback",
+        "configuration_change",
+        "resource_adjustment",
+        "code_fix",
+        "alert_tuning",
+        "cost_optimization"
+      ],
+      "title": "RemediationCategory",
+      "type": "string"
+    },
+    "RiskLevel": {
+      "description": "Assessed risk of executing the proposal.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/remediation_proposal.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A governed remediation candidate.",
+  "properties": {
+    "blast_radius": {
+      "$ref": "#/$defs/BlastRadius"
+    },
+    "category": {
+      "$ref": "#/$defs/RemediationCategory"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "expected_impact": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Expected Impact",
+      "type": "string"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "incident_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "proposal_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "rationale": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "required_permissions": {
+      "items": {
+        "maxLength": 120,
+        "minLength": 3,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Permissions",
+      "type": "array"
+    },
+    "risk": {
+      "$ref": "#/$defs/RiskLevel"
+    },
+    "rollback_plan": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Rollback Plan",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/ActionTarget"
+    }
+  },
+  "required": [
+    "proposal_id",
+    "incident_id",
+    "category",
+    "target",
+    "rationale",
+    "evidence_ids",
+    "expected_impact",
+    "blast_radius",
+    "rollback_plan",
+    "confidence",
+    "required_permissions",
+    "risk",
+    "created_at"
+  ],
+  "title": "RemediationProposal",
+  "type": "object"
+}

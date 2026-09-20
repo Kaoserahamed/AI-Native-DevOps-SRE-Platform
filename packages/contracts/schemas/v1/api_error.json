@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "ErrorDetail": {
+      "additionalProperties": false,
+      "description": "Field-level or sub-reason detail for a failed request.",
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Field"
+        },
+        "reason": {
+          "maxLength": 280,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ErrorDetail",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/api_error.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The single error payload every endpoint returns for a failed request.",
+  "properties": {
+    "correlation_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "details": {
+      "items": {
+        "$ref": "#/$defs/ErrorDetail"
+      },
+      "title": "Details",
+      "type": "array"
+    },
+    "documentation_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Documentation Url"
+    },
+    "error_code": {
+      "description": "Stable machine-readable code, for example invalid_transition.",
+      "maxLength": 64,
+      "minLength": 2,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "title": "Error Code",
+      "type": "string"
+    },
+    "message": {
+      "maxLength": 280,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "retryable": {
+      "default": false,
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status_code": {
+      "maximum": 599,
+      "minimum": 400,
+      "title": "Status Code",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "error_code",
+    "message",
+    "status_code",
+    "correlation_id"
+  ],
+  "title": "ApiError",
+  "type": "object"
+}

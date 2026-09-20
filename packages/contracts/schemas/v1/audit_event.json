@@ -1,0 +1,245 @@
+{
+  "$defs": {
+    "ActorType": {
+      "description": "Who caused an auditable event. Only humans may approve production changes.",
+      "enum": [
+        "human",
+        "agent",
+        "automation",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "AuditActor": {
+      "additionalProperties": false,
+      "description": "Who or what performed the operation.",
+      "properties": {
+        "actor_id": {
+          "description": "Human email address, or agent identifier such as incident_agent@0.1.0.",
+          "maxLength": 254,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._%+:@-]*$",
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "on_behalf_of": {
+          "anyOf": [
+            {
+              "maxLength": 254,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._%+:@-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set when an agent acts during a workflow started by a human.",
+          "title": "On Behalf Of"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "AuditActor",
+      "type": "object"
+    },
+    "AuditEventType": {
+      "description": "Auditable event types produced by the control plane.",
+      "enum": [
+        "incident_opened",
+        "incident_transitioned",
+        "evidence_collected",
+        "agent_invoked",
+        "proposal_created",
+        "policy_evaluated",
+        "approval_decided",
+        "action_executed",
+        "tool_invoked"
+      ],
+      "title": "AuditEventType",
+      "type": "string"
+    },
+    "AuditResult": {
+      "description": "Outcome of the recorded operation.",
+      "enum": [
+        "succeeded",
+        "failed",
+        "denied"
+      ],
+      "title": "AuditResult",
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/audit_event.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One immutable audit record.",
+  "properties": {
+    "action_hash": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action Hash"
+    },
+    "actor": {
+      "$ref": "#/$defs/AuditActor"
+    },
+    "after": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "After"
+    },
+    "approval_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Id"
+    },
+    "attributes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Attributes",
+      "type": "object"
+    },
+    "before": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Before"
+    },
+    "correlation_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "event_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "$ref": "#/$defs/AuditEventType"
+    },
+    "incident_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incident Id"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "previous_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Digest of the previous event in the chain; null for the first event.",
+      "title": "Previous Digest"
+    },
+    "result": {
+      "$ref": "#/$defs/AuditResult"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subject": {
+      "description": "Primary object the event is about, such as an incident id.",
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Subject",
+      "type": "string"
+    },
+    "tool": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool"
+    }
+  },
+  "required": [
+    "event_id",
+    "occurred_at",
+    "actor",
+    "event_type",
+    "subject",
+    "result",
+    "correlation_id"
+  ],
+  "title": "AuditEvent",
+  "type": "object"
+}

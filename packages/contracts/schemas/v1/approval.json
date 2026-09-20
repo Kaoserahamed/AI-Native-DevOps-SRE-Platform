@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "ActorType": {
+      "description": "Who caused an auditable event. Only humans may approve production changes.",
+      "enum": [
+        "human",
+        "agent",
+        "automation",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "ApprovalDecision": {
+      "description": "The only two outcomes of a human decision.",
+      "enum": [
+        "approved",
+        "rejected"
+      ],
+      "title": "ApprovalDecision",
+      "type": "string"
+    },
+    "Approver": {
+      "additionalProperties": false,
+      "description": "The human principal that decided. Agents and automation may never appear here.",
+      "properties": {
+        "actor_type": {
+          "$ref": "#/$defs/ActorType",
+          "default": "human"
+        },
+        "identity": {
+          "description": "Authenticated principal, for example an email address.",
+          "maxLength": 254,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._%+:@-]*$",
+          "title": "Identity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "identity"
+      ],
+      "title": "Approver",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/approval.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A single-use, expiring decision bound to one action hash.",
+  "properties": {
+    "action_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Action Hash",
+      "type": "string"
+    },
+    "approval_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "approver": {
+      "$ref": "#/$defs/Approver"
+    },
+    "comment": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comment"
+    },
+    "consumed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Consumed At"
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "decision": {
+      "$ref": "#/$defs/ApprovalDecision"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "incident_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "proposal_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Proposal Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_id",
+    "incident_id",
+    "proposal_id",
+    "action_hash",
+    "approver",
+    "decision",
+    "decided_at",
+    "expires_at"
+  ],
+  "title": "Approval",
+  "type": "object"
+}

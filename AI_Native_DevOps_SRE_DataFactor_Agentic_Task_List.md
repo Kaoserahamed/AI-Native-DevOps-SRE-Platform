@@ -256,14 +256,14 @@ Create ADRs for:
 **Commit:** `docs: add architecture decision records`
 
 ## Task 1.3 — Shared contracts
-- [ ] Incident schema.
-- [ ] Alert schema.
-- [ ] Evidence schema.
-- [ ] Agent decision schema.
-- [ ] Remediation proposal schema.
-- [ ] Approval schema.
-- [ ] Audit event schema.
-- [ ] API error schema.
+- [x] Incident schema.
+- [x] Alert schema.
+- [x] Evidence schema.
+- [x] Agent decision schema.
+- [x] Remediation proposal schema.
+- [x] Approval schema.
+- [x] Audit event schema.
+- [x] API error schema.
 
 Use versioned schemas.
 

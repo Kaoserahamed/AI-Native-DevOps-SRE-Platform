@@ -1,0 +1,253 @@
+{
+  "$defs": {
+    "Environment": {
+      "description": "Deployment environment an action or observation applies to.",
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "EvidenceCollector": {
+      "description": "Which adapter produced the evidence.",
+      "enum": [
+        "prometheus",
+        "kubernetes",
+        "github",
+        "opentelemetry_logs",
+        "opentelemetry_traces",
+        "platform"
+      ],
+      "title": "EvidenceCollector",
+      "type": "string"
+    },
+    "EvidenceKind": {
+      "description": "Kinds of observation the platform can retrieve.",
+      "enum": [
+        "metric_series",
+        "log_excerpt",
+        "trace_summary",
+        "kubernetes_object",
+        "deployment_event",
+        "configuration_diff"
+      ],
+      "title": "EvidenceKind",
+      "type": "string"
+    },
+    "ServiceRef": {
+      "additionalProperties": false,
+      "description": "Identifies the workload an observation or action refers to.",
+      "properties": {
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Namespace"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Revision under observation: image digest, commit SHA or manifest version.",
+          "title": "Revision"
+        }
+      },
+      "required": [
+        "name",
+        "environment"
+      ],
+      "title": "ServiceRef",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "description": "Inclusive-exclusive observation window, bounded in duration.",
+      "properties": {
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/evidence.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A sanitized observation with provenance and a citation-ready excerpt.",
+  "properties": {
+    "collected_at": {
+      "format": "date-time",
+      "title": "Collected At",
+      "type": "string"
+    },
+    "collector": {
+      "$ref": "#/$defs/EvidenceCollector"
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "evidence_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "excerpt": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Text that may be quoted into a prompt; already sanitized.",
+      "title": "Excerpt"
+    },
+    "incident_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Incident Id"
+    },
+    "kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "labels": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
+    },
+    "payload": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Structured observation, bounded by MAX_EVIDENCE_PAYLOAD_BYTES.",
+      "title": "Payload"
+    },
+    "redacted": {
+      "default": true,
+      "description": "Whether sanitisation/redaction has been applied.",
+      "title": "Redacted",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "service": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ServiceRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "summary": {
+      "maxLength": 280,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "window": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TimeWindow"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "evidence_id",
+    "kind",
+    "collector",
+    "collected_at",
+    "summary"
+  ],
+  "title": "Evidence",
+  "type": "object"
+}

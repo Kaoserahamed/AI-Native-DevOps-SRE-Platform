@@ -1,0 +1,357 @@
+{
+  "$defs": {
+    "CauseCategory": {
+      "description": "Coarse diagnosis categories shared by the agents, the API and the evaluation suite.",
+      "enum": [
+        "deployment_regression",
+        "dependency_failure",
+        "resource_exhaustion",
+        "configuration_error",
+        "traffic_anomaly",
+        "code_defect",
+        "infrastructure_event",
+        "unknown"
+      ],
+      "title": "CauseCategory",
+      "type": "string"
+    },
+    "Environment": {
+      "description": "Deployment environment an action or observation applies to.",
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "IncidentStatus": {
+      "description": "Every state an incident can be in.",
+      "enum": [
+        "open",
+        "acknowledged",
+        "investigating",
+        "mitigating",
+        "resolved",
+        "reopened",
+        "closed"
+      ],
+      "title": "IncidentStatus",
+      "type": "string"
+    },
+    "ServiceRef": {
+      "additionalProperties": false,
+      "description": "Identifies the workload an observation or action refers to.",
+      "properties": {
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Namespace"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Revision under observation: image digest, commit SHA or manifest version.",
+          "title": "Revision"
+        }
+      },
+      "required": [
+        "name",
+        "environment"
+      ],
+      "title": "ServiceRef",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Incident and alert severity, matching the on-call expectations in the SLO document.",
+      "enum": [
+        "sev1",
+        "sev2",
+        "sev3"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SuspectedCause": {
+      "additionalProperties": false,
+      "description": "A candidate cause that must cite the evidence supporting it.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/CauseCategory"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "description": {
+          "maxLength": 280,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "description": "Evidence supporting this cause. Uncited causes are not allowed.",
+          "items": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "category",
+        "description",
+        "confidence",
+        "evidence_ids"
+      ],
+      "title": "SuspectedCause",
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/incident.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Durable incident record: what broke, what we know, and what was decided.",
+  "properties": {
+    "acknowledged_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Acknowledged At"
+    },
+    "approval_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "title": "Approval Ids",
+      "type": "array"
+    },
+    "closed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Closed At"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "detected_at": {
+      "format": "date-time",
+      "title": "Detected At",
+      "type": "string"
+    },
+    "evidence_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "incident_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "mitigated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mitigated At"
+    },
+    "opened_at": {
+      "format": "date-time",
+      "title": "Opened At",
+      "type": "string"
+    },
+    "post_incident_notes": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Post Incident Notes"
+    },
+    "proposal_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "title": "Proposal Ids",
+      "type": "array"
+    },
+    "resolution_summary": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolution Summary"
+    },
+    "resolved_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolved At"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "service": {
+      "$ref": "#/$defs/ServiceRef"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "status": {
+      "$ref": "#/$defs/IncidentStatus",
+      "default": "open"
+    },
+    "suspected_causes": {
+      "items": {
+        "$ref": "#/$defs/SuspectedCause"
+      },
+      "title": "Suspected Causes",
+      "type": "array"
+    },
+    "title": {
+      "maxLength": 280,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "triggering_alert_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "title": "Triggering Alert Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "incident_id",
+    "title",
+    "severity",
+    "service",
+    "detected_at",
+    "opened_at"
+  ],
+  "title": "Incident",
+  "type": "object"
+}

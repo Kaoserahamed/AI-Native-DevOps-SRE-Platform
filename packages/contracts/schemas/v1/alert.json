@@ -1,0 +1,234 @@
+{
+  "$defs": {
+    "AlertSource": {
+      "description": "Origin of a normalized alert.",
+      "enum": [
+        "prometheus",
+        "kubernetes",
+        "github",
+        "anomaly_detection",
+        "manual"
+      ],
+      "title": "AlertSource",
+      "type": "string"
+    },
+    "Environment": {
+      "description": "Deployment environment an action or observation applies to.",
+      "enum": [
+        "development",
+        "staging",
+        "production"
+      ],
+      "title": "Environment",
+      "type": "string"
+    },
+    "ServiceRef": {
+      "additionalProperties": false,
+      "description": "Identifies the workload an observation or action refers to.",
+      "properties": {
+        "environment": {
+          "$ref": "#/$defs/Environment"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Namespace"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Revision under observation: image digest, commit SHA or manifest version.",
+          "title": "Revision"
+        }
+      },
+      "required": [
+        "name",
+        "environment"
+      ],
+      "title": "ServiceRef",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Incident and alert severity, matching the on-call expectations in the SLO document.",
+      "enum": [
+        "sev1",
+        "sev2",
+        "sev3"
+      ],
+      "title": "Severity",
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/alert.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A single alert that may or may not open an incident.\n\n``fingerprint`` is stable across a firing series so that duplicate deliveries deduplicate into one\nalert, and ``slo`` links the alert to the objective it threatens.",
+  "properties": {
+    "alert_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Alert Id",
+      "type": "string"
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "fingerprint": {
+      "description": "Stable identity of the firing rule and target labels.",
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "fired_at": {
+      "format": "date-time",
+      "title": "Fired At",
+      "type": "string"
+    },
+    "labels": {
+      "additionalProperties": {
+        "maxLength": 512,
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "object"
+    },
+    "name": {
+      "maxLength": 64,
+      "minLength": 2,
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "title": "Name",
+      "type": "string"
+    },
+    "resolved_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolved At"
+    },
+    "runbook_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runbook Url"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "service": {
+      "$ref": "#/$defs/ServiceRef"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity"
+    },
+    "slo": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Slo"
+    },
+    "source": {
+      "$ref": "#/$defs/AlertSource"
+    },
+    "summary": {
+      "maxLength": 280,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "alert_id",
+    "fingerprint",
+    "name",
+    "severity",
+    "service",
+    "source",
+    "summary",
+    "fired_at"
+  ],
+  "title": "Alert",
+  "type": "object"
+}
