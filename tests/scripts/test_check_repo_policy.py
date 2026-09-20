@@ -154,6 +154,8 @@ def test_markdown_links_accept_existing_paths_and_anchors(tmp_path: Path) -> Non
 def test_markdown_links_ignore_generated_directories(tmp_path: Path) -> None:
     write_file(tmp_path, "node_modules/pkg/README.md", "[broken](missing.md)\n")
     write_file(tmp_path, ".git/README.md", "[broken](missing.md)\n")
+    write_file(tmp_path, ".venv/lib/pkg/README.md", "[broken](missing.md)\n")
+    write_file(tmp_path, ".tools/README.md", "[broken](missing.md)\n")
 
     assert check_repo_policy.check_markdown_links(tmp_path) == []
 

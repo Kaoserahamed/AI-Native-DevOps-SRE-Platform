@@ -153,7 +153,10 @@ def check_workflow_actions_pinned(root: Path) -> list[str]:
 
 def check_markdown_links(root: Path) -> list[str]:
     """Return violations for relative Markdown links that do not resolve to an existing path."""
-    skip_dirs = {".git", ".venv", "node_modules"}
+    # Directories that hold downloaded or generated content rather than repository documentation:
+    # `node_modules` (and the Python virtual environment) are dependency trees, and `.tools` holds
+    # checksum-verified tool binaries fetched by the validation scripts, which ship their own README.
+    skip_dirs = {".git", ".venv", ".tools", "node_modules"}
     violations: list[str] = []
     for document in sorted(root.rglob("*.md")):
         if any(part in skip_dirs for part in document.parts):

@@ -81,3 +81,7 @@ gitleaks-report.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Locally downloaded, checksum-verified validation tools (kustomize, kubeconform, kube-linter).
+# They are fetched on demand by the verification workflow, never committed.
+.tools/
