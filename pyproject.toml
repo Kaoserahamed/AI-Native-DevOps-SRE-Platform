@@ -46,8 +46,9 @@ Issues = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/issues"
 # Developer tooling is pinned exactly: `uv sync --frozen --all-extras` must resolve identically on a
 # fresh CI runner and on a developer machine.
 dev = [
-  "jsonschema==4.26.0",
+        "jsonschema==4.26.0",
   "mypy==2.3.1",
+  "types-jsonschema==4.25.0.20250809",
   "pre-commit==4.6.2",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",

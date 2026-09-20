@@ -70,7 +70,9 @@ class AuditEvent(PlatformModel):
     occurred_at: UtcDatetime
     actor: AuditActor
     event_type: AuditEventType
-    subject: Identifier = Field(description="Primary object the event is about, such as an incident id.")
+    subject: Identifier = Field(
+        description="Primary object the event is about, such as an incident id."
+    )
     result: AuditResult
     correlation_id: Identifier
     incident_id: Identifier | None = None
@@ -81,7 +83,8 @@ class AuditEvent(PlatformModel):
     after: Attributes | None = None
     attributes: dict[str, str] = Field(default_factory=dict)
     previous_digest: Digest | None = Field(
-        default=None, description="Digest of the previous event in the chain; null for the first event."
+        default=None,
+        description="Digest of the previous event in the chain; null for the first event.",
     )
 
     @model_validator(mode="after")
@@ -116,7 +119,9 @@ class AuditEvent(PlatformModel):
             "previous_digest": self.previous_digest,
         }
 
-    @computed_field(description="Chain digest covering the event content and the previous event digest.")
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Chain digest covering the event content and the previous event digest."
+    )
     @property
     def digest(self) -> str:
         """Return the sha256 digest that the next event must reference."""

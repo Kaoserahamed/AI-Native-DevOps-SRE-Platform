@@ -9,9 +9,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Final
 
-import pytest
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
+import pytest
 
 import packages.contracts as contracts
 from packages.contracts.versioning import (

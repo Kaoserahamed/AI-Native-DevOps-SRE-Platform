@@ -96,7 +96,8 @@ class AgentDecision(PlatformModel):
     summary: ShortText
     confidence: Confidence
     evidence_ids: list[Identifier] = Field(
-        default_factory=list, description="Identifiers of the evidence that was provided to the agent."
+        default_factory=list,
+        description="Identifiers of the evidence that was provided to the agent.",
     )
     citations: list[Citation] = Field(default_factory=list)
     uncertainty: LongText | None = None

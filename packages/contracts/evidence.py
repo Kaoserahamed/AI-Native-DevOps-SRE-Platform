@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from enum import StrEnum
-from typing import Annotated, Any, Final, Self
+from typing import Annotated, Final, Self
 
 from pydantic import Field, StringConstraints, computed_field, model_validator
 
@@ -19,7 +19,6 @@ from packages.contracts.common import (
     Attributes,
     Counter,
     Identifier,
-    LongText,
     PlatformModel,
     ServiceRef,
     ShortText,
@@ -32,7 +31,9 @@ MAX_EVIDENCE_WINDOW: Final[timedelta] = timedelta(hours=6)
 MAX_EVIDENCE_PAYLOAD_BYTES: Final[int] = 16_384
 MAX_EXCERPT_LENGTH: Final[int] = 2_000
 
-Excerpt = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_EXCERPT_LENGTH)]
+Excerpt = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_EXCERPT_LENGTH)
+]
 
 
 class EvidenceKind(StrEnum):
@@ -92,7 +93,9 @@ class Evidence(PlatformModel):
         default=None, description="Structured observation, bounded by MAX_EVIDENCE_PAYLOAD_BYTES."
     )
     labels: dict[str, str] = Field(default_factory=dict)
-    redacted: bool = Field(default=True, description="Whether sanitisation/redaction has been applied.")
+    redacted: bool = Field(
+        default=True, description="Whether sanitisation/redaction has been applied."
+    )
     incident_id: Identifier | None = None
     correlation_id: Identifier | None = None
 
@@ -112,7 +115,9 @@ class Evidence(PlatformModel):
             raise ValueError(f"{self.kind} evidence requires an observation window")
         return self
 
-    @computed_field(description="Serialized payload size in bytes, used for budget enforcement.")
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Serialized payload size in bytes, used for budget enforcement."
+    )
     @property
     def size_bytes(self) -> int:
         """Return the canonical JSON size of the structured payload (0 when there is none)."""
@@ -120,7 +125,9 @@ class Evidence(PlatformModel):
             return 0
         return len(canonical_json(self.payload).encode("utf-8"))
 
-    @computed_field(description="Total bounded payload counter for budget accounting.")
+    @computed_field(  # type: ignore[prop-decorator]
+        description="Total bounded payload counter for budget accounting."
+    )
     @property
     def evidence_bytes(self) -> Counter:
         """Return the size charged against the agent's evidence budget."""

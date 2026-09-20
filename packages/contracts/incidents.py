@@ -148,7 +148,9 @@ class Incident(PlatformModel):
                 raise ValueError(f"status {self.status} requires {field_name}")
 
         if self.status is IncidentStatus.REOPENED and self.resolved_at is not None:
-            raise ValueError("a reopened incident must clear resolved_at until it is resolved again")
+            raise ValueError(
+                "a reopened incident must clear resolved_at until it is resolved again"
+            )
 
         if self.status in {IncidentStatus.RESOLVED, IncidentStatus.CLOSED}:
             if self.resolution_summary is None:
@@ -159,7 +161,9 @@ class Incident(PlatformModel):
         if self.post_incident_notes is not None and self.status is not IncidentStatus.CLOSED:
             raise ValueError("post_incident_notes may only be set once the incident is closed")
 
-        if self.status is IncidentStatus.MITIGATING and not (self.proposal_ids or self.approval_ids):
+        if self.status is IncidentStatus.MITIGATING and not (
+            self.proposal_ids or self.approval_ids
+        ):
             raise ValueError("a mitigating incident must reference a proposal or an approval")
 
         if self.suspected_causes and self.confidence is None:
@@ -173,5 +177,7 @@ class Incident(PlatformModel):
         for cause in self.suspected_causes:
             missing = set(cause.evidence_ids) - evidence_ids
             if missing:
-                raise ValueError(f"cause cites evidence not attached to the incident: {sorted(missing)}")
+                raise ValueError(
+                    f"cause cites evidence not attached to the incident: {sorted(missing)}"
+                )
         return self

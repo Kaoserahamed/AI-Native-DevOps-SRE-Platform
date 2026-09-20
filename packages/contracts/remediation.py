@@ -136,7 +136,9 @@ class Approver(ValueModel):
     """The human principal that decided. Agents and automation may never appear here."""
 
     actor_type: ActorType = ActorType.HUMAN
-    identity: PrincipalId = Field(description="Authenticated principal, for example an email address.")
+    identity: PrincipalId = Field(
+        description="Authenticated principal, for example an email address."
+    )
 
     @model_validator(mode="after")
     def validate_human(self) -> Self:

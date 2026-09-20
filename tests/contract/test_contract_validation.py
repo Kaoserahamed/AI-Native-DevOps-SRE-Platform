@@ -7,24 +7,19 @@ state machine that cannot skip steps.
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any, Final
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 import packages.contracts as contracts
 from packages.contracts import (
     ALLOWED_TRANSITIONS,
     AgentDecision,
     Alert,
-    ApiError,
-    Approval,
-    AuditEvent,
     Evidence,
     Incident,
     IncidentStatus,
-    RemediationProposal,
     can_transition,
 )
 

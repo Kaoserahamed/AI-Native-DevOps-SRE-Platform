@@ -7,8 +7,8 @@ they are attacker-influenceable telemetry (trust boundary TB-2) that ends up in 
 
 from __future__ import annotations
 
-import re
 from enum import StrEnum
+import re
 from typing import Final, Self
 
 from pydantic import Field, HttpUrl, field_validator, model_validator
@@ -47,7 +47,9 @@ class Alert(PlatformModel):
     """
 
     alert_id: Identifier
-    fingerprint: Identifier = Field(description="Stable identity of the firing rule and target labels.")
+    fingerprint: Identifier = Field(
+        description="Stable identity of the firing rule and target labels."
+    )
     name: MachineName
     severity: Severity
     service: ServiceRef

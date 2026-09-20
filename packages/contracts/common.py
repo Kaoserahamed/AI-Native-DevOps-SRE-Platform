@@ -8,11 +8,11 @@ machine-friendly, and every field that can reach an agent prompt is bounded in l
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import StrEnum
+import hashlib
+import json
 from typing import Annotated, Any, Final
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
@@ -38,7 +38,9 @@ def require_aware_utc(value: datetime) -> datetime:
 
 def canonical_json(payload: Mapping[str, Any]) -> str:
     """Return a deterministic JSON encoding used for digests and action hashes."""
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+    )
 
 
 def sha256_digest(payload: Mapping[str, Any]) -> str:
@@ -59,7 +61,9 @@ Identifier = Annotated[
 ]
 MachineName = Annotated[
     str,
-    StringConstraints(strip_whitespace=True, min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$"),
+    StringConstraints(
+        strip_whitespace=True, min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$"
+    ),
 ]
 PrincipalId = Annotated[
     str,
@@ -140,7 +144,9 @@ class ServiceRef(ValueModel):
     name: MachineName
     environment: Environment
     namespace: MachineName | None = None
-    revision: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = Field(
-        default=None,
-        description="Revision under observation: image digest, commit SHA or manifest version.",
+    revision: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = (
+        Field(
+            default=None,
+            description="Revision under observation: image digest, commit SHA or manifest version.",
+        )
     )

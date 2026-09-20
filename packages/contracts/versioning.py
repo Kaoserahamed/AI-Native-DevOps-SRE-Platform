@@ -8,8 +8,8 @@ snapshot update therefore fails CI, which is what makes "no silent breaking chan
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
+import json
 from pathlib import Path
 from typing import Any, Final
 
@@ -79,8 +79,7 @@ def load_snapshots(directory: Path) -> dict[str, str]:
     if not directory.is_dir():
         return {}
     return {
-        path.name: path.read_text(encoding="utf-8")
-        for path in sorted(directory.glob("*.json"))
+        path.name: path.read_text(encoding="utf-8") for path in sorted(directory.glob("*.json"))
     }
 
 

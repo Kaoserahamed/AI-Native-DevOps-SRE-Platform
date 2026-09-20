@@ -11,8 +11,8 @@ update fails CI instead of drifting silently.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from packages.contracts.versioning import (
     CONTRACT_MODELS,
@@ -27,7 +27,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the exporter in write mode or verify mode."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
-    parser.add_argument("--root", type=Path, default=REPO_ROOT, help="repository root holding packages/")
+    parser.add_argument(
+        "--root", type=Path, default=REPO_ROOT, help="repository root holding packages/"
+    )
     parser.add_argument(
         "--check", action="store_true", help="verify the committed schemas match the code"
     )

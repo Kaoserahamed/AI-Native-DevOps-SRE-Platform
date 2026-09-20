@@ -29,7 +29,9 @@ class ErrorDetail(ValueModel):
 class ApiError(PlatformModel):
     """The single error payload every endpoint returns for a failed request."""
 
-    error_code: MachineName = Field(description="Stable machine-readable code, for example invalid_transition.")
+    error_code: MachineName = Field(
+        description="Stable machine-readable code, for example invalid_transition."
+    )
     message: ShortText
     status_code: Annotated[int, Field(ge=400, le=599)]
     correlation_id: Identifier
