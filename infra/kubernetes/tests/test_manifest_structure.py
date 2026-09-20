@@ -55,15 +55,62 @@ def test_every_manifest_carries_the_standard_labels(base_manifests: list[Manifes
 def test_base_kustomization_lists_every_manifest_file() -> None:
     """An unlisted file is a manifest that silently never applies."""
     kustomization = yaml.safe_load((BASE_DIR / "kustomization.yaml").read_text(encoding="utf-8"))
-    listed = {Path(entry).name for entry in kustomization["resources"]}
-    present = {
+    resources = kustomization["resources"]
+
+    # Separate top-level manifest files from subdirectory kustomization references
+    top_level_names = set()
+    subdirectory_kustomizations = set()
+
+    for entry in resources:
+        path = Path(entry)
+        if path.suffix == ".yaml" and path.name == "kustomization.yaml" and path.parent != Path("."):
+            # This is a reference to a subdirectory's kustomization file
+            subdirectory_kustomizations.add(path.parent)
+        else:
+            top_level_names.add(path.name)
+
+    # Check top-level .yaml files (excluding kustomization.yaml itself)
+    top_level_files = {
         path.name
         for path in BASE_DIR.glob("*.yaml")
         if path.name != "kustomization.yaml"
     }
+    assert top_level_files - top_level_names == set(), (
+        f"top-level manifest files not referenced by kustomization.yaml: "
+        f"{top_level_files - top_level_names}"
+    )
+    assert top_level_names - top_level_files == set(), (
+        f"kustomization.yaml references top-level files that do not exist: "
+        f"{top_level_names - top_level_files}"
+    )
 
-    assert present - listed == set(), "manifest files are not referenced by kustomization.yaml"
-    assert listed - present == set(), "kustomization.yaml references files that do not exist"
+    # Check each subdirectory's kustomization
+    for subdir in subdirectory_kustomizations:
+        subdir_path = BASE_DIR / subdir
+        assert subdir_path.is_dir(), f"subdirectory {subdir} does not exist"
+        subdir_kustomization_file = subdir_path / "kustomization.yaml"
+        assert subdir_kustomization_file.exists(), (
+            f"subdirectory {subdir} has no kustomization.yaml"
+        )
+        subdir_kustomization = yaml.safe_load(
+            subdir_kustomization_file.read_text(encoding="utf-8")
+        )
+        subdir_resources = {
+            Path(entry).name for entry in subdir_kustomization["resources"]
+        }
+        subdir_files = {
+            path.name
+            for path in subdir_path.glob("*.yaml")
+            if path.name != "kustomization.yaml"
+        }
+        assert subdir_files - subdir_resources == set(), (
+            f"files in {subdir}/ not referenced by its kustomization.yaml: "
+            f"{subdir_files - subdir_resources}"
+        )
+        assert subdir_resources - subdir_files == set(), (
+            f"kustomization.yaml in {subdir}/ references files that do not exist: "
+            f"{subdir_resources - subdir_files}"
+        )
 
 
 def test_workload_selectors_match_their_pod_labels(workloads: list[Manifest]) -> None:
