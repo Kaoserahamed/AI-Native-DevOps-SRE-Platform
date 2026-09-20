@@ -243,15 +243,15 @@ ai-native-devops-sre/
 
 ## Task 1.2 — ADR framework
 Create ADRs for:
-- [ ] Kubernetes deployment model.
-- [ ] OpenTelemetry architecture.
-- [ ] Prometheus/Grafana choice.
-- [ ] PostgreSQL data storage.
-- [ ] Redis queue/cache usage.
-- [ ] LLM provider abstraction.
-- [ ] Human approval model.
-- [ ] GitHub integration.
-- [ ] Terraform environment separation.
+- [x] Kubernetes deployment model.
+- [x] OpenTelemetry architecture.
+- [x] Prometheus/Grafana choice.
+- [x] PostgreSQL data storage.
+- [x] Redis queue/cache usage.
+- [x] LLM provider abstraction.
+- [x] Human approval model.
+- [x] GitHub integration.
+- [x] Terraform environment separation.
 
 **Commit:** `docs: add architecture decision records`
 

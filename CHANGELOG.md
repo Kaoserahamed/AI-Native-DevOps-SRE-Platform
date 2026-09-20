@@ -37,5 +37,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   loop, system context and component diagrams, control-plane versus data-plane responsibilities, trust
   boundaries, synchronous/asynchronous interaction matrix and failure-domain analysis
   (`docs/00-overview.md`, `docs/01-architecture.md`).
+- ADR framework (`docs/adr/`) with a template, an indexed and immutable decision log, and the nine
+  foundational decisions: Kubernetes deployment model, OpenTelemetry architecture, Prometheus/Grafana,
+  PostgreSQL storage, Redis queue and cache, LLM provider abstraction, human approval model, GitHub
+  integration and Terraform environment separation.
 
 [Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main
