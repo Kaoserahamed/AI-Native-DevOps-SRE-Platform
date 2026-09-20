@@ -1,0 +1,142 @@
+groups:
+  - name: application-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status="5xx"}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'High 5xx error rate detected'
+          description: 'Error rate is {{ $value }} (threshold: 5%) for more than 5 minutes'
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: 'High API latency detected'
+          description: 'P99 latency is {{ $value }}s (threshold: 1s) for more than 5 minutes'
+
+      - alert: High4xxRate
+        expr: |
+          sum(rate(http_requests_total{status="4xx"}[5m])) / sum(rate(http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: 'High 4xx error rate detected'
+          description: 'Client error rate is {{ $value }} (threshold: 10%) for more than 5 minutes'
+
+  - name: kubernetes-alerts
+    rules:
+      - alert: PodRestartSpike
+        expr: |
+          increase(kube_pod_container_status_restarts_total[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: 'Pod restart spike detected'
+          description: 'Pod {{ $labels.pod }} restarted {{ $value }} times in 15 minutes'
+
+      - alert: OOMKills
+        expr: |
+          increase(kube_pod_container_status_terminated_reason{reason="OOMKilled"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'OOMKill detected'
+          description: 'Container {{ $labels.container }} in pod {{ $labels.pod }} was OOMKilled'
+
+      - alert: CrashLoopBackOff
+        expr: |
+          kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'CrashLoopBackOff detected'
+          description: 'Container {{ $labels.container }} in pod {{ $labels.pod }} is in CrashLoopBackOff state'
+
+      - alert: DeploymentRolloutFailure
+        expr: |
+          kube_deployment_status_replicas_unavailable > 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'Deployment rollout failure detected'
+          description: 'Deployment {{ $labels.deployment }} has unavailable replicas'
+
+  - name: database-alerts
+    rules:
+      - alert: DatabaseSaturation
+        expr: |
+          pg_database_size_bytes / pg_database_size_bytes > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: 'Database storage saturation'
+          description: 'Database storage is {{ $value }}% full'
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          pg_stat_database_numbackends / pg_settings_max_connections > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: data
+        annotations:
+          summary: 'Database connection pool nearly exhausted'
+          description: '{{ $value }}% of database connections are in use'
+
+  - name: redis-alerts
+    rules:
+      - alert: RedisSaturation
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: 'Redis memory saturation'
+          description: 'Redis memory usage is {{ $value }}% of max'
+
+  - name: sre-slo-alerts
+    rules:
+      - alert: SLOBurnRateHigh
+        expr: |
+          burn_rate > 14.4
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: 'SLO burn rate is critical'
+          description: 'Burn rate is {{ $value }}x (threshold: 14.4x for 1h window)'
+
+      - alert: SLOBurnRateWarning
+        expr: |
+          burn_rate > 1.0
+        for: 1h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: 'SLO burn rate is elevated'
+          description: 'Burn rate is {{ $value }}x (threshold: 1x for 6h window)'
