@@ -212,13 +212,16 @@ ai-native-devops-sre/
 **Commit:** `chore: define language and tooling standards`
 
 ## Task 0.3 — Reproducible dependency management
-- [ ] Pin Python dependencies.
-- [ ] Commit `uv.lock` or chosen Python lockfile.
-- [ ] Commit npm lockfile.
-- [ ] Commit Go module metadata.
-- [ ] Establish dependency update policy.
-- [ ] Add Dependabot/Renovate.
-- [ ] Document upgrade procedure.
+- [x] Pin Python dependencies.
+- [x] Commit `uv.lock` or chosen Python lockfile.
+- [x] Commit npm lockfile.
+- [x] Commit Go module metadata. — Not applicable: the platform is Python and TypeScript, so no Go module
+      exists and `go.mod`/`go.sum` are intentionally absent. The Go lint policy is defined in
+      `.golangci.yml` and a Go component must commit module metadata with its first package
+      (see `docs/03-local-development.md`, "Go components").
+- [x] Establish dependency update policy.
+- [x] Add Dependabot/Renovate.
+- [x] Document upgrade procedure.
 
 **Acceptance:** fresh CI runner reproduces dependency resolution deterministically.
 

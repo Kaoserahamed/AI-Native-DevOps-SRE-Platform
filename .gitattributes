@@ -48,11 +48,13 @@ Dockerfile text
 *.gz binary
 *.tar binary
 
-# Lockfiles are generated: keep them out of diffs and review via their source of truth
-uv.lock -diff linguist-generated
-package-lock.json -diff linguist-generated
-go.sum -diff linguist-generated
-.terraform.lock.hcl -diff linguist-generated
+# Lockfiles are generated, so language statistics ignore them and GitHub collapses them in diffs, but
+# they keep text diffs on purpose: the upgrade procedure in docs/18-governance.md requires reviewers to
+# read the resolved version changes.
+uv.lock linguist-generated
+package-lock.json linguist-generated
+go.sum linguist-generated
+.terraform.lock.hcl linguist-generated
 
 # Mark generated artifacts as vendored so language statistics stay meaningful
 docs/diagrams/*.svg linguist-documentation

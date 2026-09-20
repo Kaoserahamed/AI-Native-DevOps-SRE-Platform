@@ -30,5 +30,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `repo-policy.yml` workflow that also checks documentation links.
 - Local development documentation with supported runtime versions, tool pinning locations and Windows
   equivalents for every `make` target (`docs/03-local-development.md`).
+- Reproducible dependency management: committed `uv.lock` and `package-lock.json` lockfiles, a documented
+  pinning policy and upgrade procedure, and Dependabot configuration with grouped updates and a release
+  cooldown for the `uv`, `npm` and `github-actions` ecosystems.
 
 [Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main

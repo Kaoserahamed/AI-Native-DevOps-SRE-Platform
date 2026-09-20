@@ -1,0 +1,92 @@
+# Dependabot configuration.
+#
+# Policy (see docs/18-governance.md, "Dependency management"): automation proposes grouped minor and
+# patch updates, security updates are handled immediately, and major-version upgrades are deliberately
+# ignored here so they are performed as reviewed changes with an ADR when they affect architecture.
+#
+# The Docker entry arrives with the container phase and the Terraform entry with the infrastructure
+# phase; adding an update entry before its manifest exists only produces noisy Dependabot logs.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    # Never adopt a release younger than the cooldown window: it gives the ecosystem time to detect a
+    # compromised or immediately-yanked publication before it reaches this repository.
+    cooldown:
+      default-days: 3
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      python-development-tooling:
+        dependency-type: "development"
+        patterns: ["*"]
+      python-runtime:
+        dependency-type: "production"
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:15"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    groups:
+      javascript-tooling:
+        patterns: ["*"]
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+  # GitHub Actions: major updates are the normal upgrade path for actions, so nothing is ignored. Every
+  # pull request must keep the SHA pin and the "# vX.Y.Z" comment in sync (enforced by
+  # scripts/check_repo_policy.py).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns: ["*"]
