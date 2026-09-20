@@ -47,10 +47,11 @@ The platform is built incrementally. This table tracks the phases defined in
 
 ## Quick start
 
-Prerequisites (exact versions are documented in `docs/03-local-development.md`):
+Prerequisites (exact versions and pinning locations are documented in
+[docs/03-local-development.md](docs/03-local-development.md)):
 
 - Python 3.11 or newer
-- Node.js 20 or newer (demo frontend and repository tooling)
+- Node.js 20.19 or newer (demo frontend and repository tooling)
 - [`uv`](https://docs.astral.sh/uv/) for reproducible Python dependency resolution
 
 ```bash
@@ -59,10 +60,18 @@ cd AI-Native-DevOps-SRE-Platform
 python -m pip install uv
 uv sync --frozen --all-extras
 uv run pre-commit install
+npm ci
 ```
 
-Verification commands (the same commands CI runs) are documented in `docs/14-ci-cd.md` and wrapped by
-the repository `Makefile`.
+Every gate CI runs on a pull request is available locally through one command:
+
+```bash
+make verify            # repository policy, format, lint, typecheck, fast tests, frontend tooling
+make test-integration  # ephemeral PostgreSQL/Redis/OTel tiers
+```
+
+Windows has no `make` by default; [docs/03-local-development.md](docs/03-local-development.md) lists the
+equivalent commands, including the Node tooling fallback for clone paths that contain `&`.
 
 ## Repository layout
 
@@ -92,6 +101,7 @@ exist (`docs/00-overview.md`, `docs/01-architecture.md`, `docs/03-local-developm
 
 | Document | Purpose |
 | --- | --- |
+| [docs/03-local-development.md](docs/03-local-development.md) | Supported runtimes, tooling pins, canonical commands |
 | [docs/18-governance.md](docs/18-governance.md) | Branch protection, review and change policy |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose and validate changes |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting and security expectations |

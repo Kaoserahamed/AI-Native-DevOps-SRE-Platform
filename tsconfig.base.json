@@ -1,0 +1,43 @@
+/*
+ * Shared strict TypeScript baseline. Workspaces extend it, for example:
+ *
+ *   apps/demo-app/frontend/tsconfig.json
+ *     { "extends": "../../../tsconfig.base.json", "compilerOptions": { "jsx": "preserve" },
+ *       "include": ["src", "next-env.d.ts"] }
+ *
+ * The repository root is itself an empty project: it has no sources yet, so `files` is an explicit
+ * empty list and `npm run typecheck` succeeds while still enforcing the shared compiler options once a
+ * workspace is added.
+ */
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "preserve",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "incremental": false,
+    "types": []
+  },
+  "files": [],
+  "include": [],
+  "exclude": ["node_modules", "**/node_modules", "**/.next", "**/dist", "**/coverage"]
+}

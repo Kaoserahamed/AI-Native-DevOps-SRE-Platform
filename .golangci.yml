@@ -1,0 +1,87 @@
+# golangci-lint configuration.
+#
+# Policy for Go code in this repository (see docs/03-local-development.md): the platform is written in
+# Python and TypeScript, so there is no Go module today and `go.sum` does not exist. This file exists so
+# that if a Go component is introduced (for example a high-throughput traffic generator or a Kubernetes
+# admission policy helper) it starts already lint-clean and consistent with the CI gate in
+# `.github/workflows/ci.yml`. When the first Go package lands, commit `go.mod`/`go.sum` in the same
+# change and the CI job becomes active automatically.
+
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    # Correctness
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - bodyclose
+    - errorlint
+    - contextcheck
+    - nilerr
+    - rowserrcheck
+    - sqlclosecheck
+    # Style and maintainability
+    - revive
+    - gocritic
+    - misspell
+    - whitespace
+    - unconvert
+    - unparam
+    - dupl
+    # Security
+    - gosec
+    # Performance
+    - prealloc
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    revive:
+      severity: warning
+      rules:
+        - name: package-comments
+        - name: exported
+        - name: indent-error-flow
+        - name: errorf
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: var-naming
+    gosec:
+      excludes:
+        - G104
+    dupl:
+      threshold: 150
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - gosec

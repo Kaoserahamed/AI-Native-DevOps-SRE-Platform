@@ -1,0 +1,181 @@
+# Repository-wide Python project definition and tool configuration.
+#
+# The platform is a single installable project: `services/`, `packages/` and `apps/` are namespace
+# packages that live next to the root `pyproject.toml`, so a fresh clone has exactly one interpreter,
+# one lockfile (`uv.lock`) and one tool configuration.
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-native-devops-sre-platform"
+version = "0.0.0"
+description = "AI-native DevOps and SRE control loop: observe, detect, diagnose, propose, approve, remediate"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Kaoser Ahamed", email = "akaoser41@gmail.com" }]
+keywords = ["devops", "sre", "opentelemetry", "kubernetes", "incident-response", "ai-agents"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Monitoring",
+  "Typing :: Typed",
+]
+# Runtime dependencies are added by the phase that introduces them, so each lockfile diff explains
+# itself. The target end state is FastAPI, SQLAlchemy/psycopg, redis, OpenTelemetry, httpx and pydantic;
+# the agent phases add the LLM provider adapters.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform"
+Documentation = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/tree/main/docs"
+Changelog = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/issues"
+
+[project.optional-dependencies]
+# Developer tooling is pinned exactly: `uv sync --frozen --all-extras` must resolve identically on a
+# fresh CI runner and on a developer machine.
+dev = [
+  "mypy==2.3.1",
+  "pre-commit==4.6.2",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.8",
+]
+
+[tool.hatch.build.targets.wheel]
+# Grows with the repository: `packages`, `services` and `apps` are added by the phases that create them.
+packages = ["scripts"]
+
+# ---------------------------------------------------------------------------
+# Ruff: formatter and linter (replaces black + flake8 + isort + pyupgrade)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["scripts", "packages", "services", "apps"]
+extend-exclude = [".venv", "node_modules", "apps/demo-app/frontend/.next"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "C4",   # flake8-comprehensions
+  "SIM",  # flake8-simplify
+  "RET",  # flake8-return
+  "PTH",  # flake8-use-pathlib
+  "ARG",  # unused arguments
+  "LOG",  # logging correctness
+  "G",    # logging format
+  "T20",  # print statements (kept out of library code)
+  "PT",   # pytest style
+  "RUF",  # ruff-specific
+  "PERF", # performance
+]
+ignore = [
+  "E501",   # line length is enforced by the formatter
+  "SIM108", # ternaries are not always clearer than if/else
+]
+
+[tool.ruff.lint.per-file-ignores]
+# CLI entry points and scripts report progress to stdout on purpose; library code must use logging.
+"scripts/*.py" = ["T201"]
+"tests/**/*.py" = ["ARG001", "ARG002"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "packages", "services", "scripts"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# mypy: strict static typing. The file list grows with the repository.
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+files = ["scripts", "tests"]
+strict = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+exclude = '(^|/)(\.venv|node_modules|\.next)/'
+
+# ---------------------------------------------------------------------------
+# pytest: markers describe the test tiers documented in docs/15-testing-strategy.md
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+  "--cov-report=term-missing",
+  "--cov-report=xml:coverage.xml",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["error"]
+markers = [
+  "unit: fast, deterministic, no network and no external service",
+  "contract: validates schemas and interfaces against fakes and fixtures",
+  "integration: requires an ephemeral real service (PostgreSQL, Redis, OTel collector)",
+  "e2e: requires a deployed environment (ephemeral Kubernetes cluster in CI)",
+  "agent_eval: agent evaluation fixtures with safety assertions",
+  "security: security regression tests (authorization, injection, SSRF, RBAC)",
+  "chaos: resilience tests; expected behaviour must be documented before enabling them",
+  "slow: long-running tests excluded from the fast quality gate",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage gate: enforced through `pytest --cov-fail-under` (see the Makefile)
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+branch = true
+source = ["scripts"]
+omit = ["tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+fail_under = 90
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == \"__main__\":",
+  "pragma: no cover",
+]
+
+[tool.coverage.xml]
+output = "coverage.xml"

@@ -1,0 +1,50 @@
+# EditorConfig keeps editors consistent with the formatters used in CI.
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 100
+
+[*.py]
+indent_size = 4
+
+[*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,yml,yaml,css,scss,html}]
+indent_size = 2
+
+[*.go]
+indent_style = tab
+
+[*.{tf,tfvars,hcl}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+max_line_length = 120
+
+[*.md]
+# Trailing whitespace is significant in Markdown (hard line breaks).
+trim_trailing_whitespace = false
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.{sh,ps1}]
+indent_size = 2
+
+[LICENSE]
+max_line_length = 120
+insert_final_newline = false
+
+# Generated files must not be reformatted by editors.
+[uv.lock]
+indent_size = 2
+trim_trailing_whitespace = false
+
+[package-lock.json]
+indent_size = 2

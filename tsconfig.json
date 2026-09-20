@@ -1,0 +1,14 @@
+/*
+ * TypeScript workspace solution file.
+ *
+ * `tsconfig.base.json` holds the shared strict compiler options; each TypeScript workspace has its own
+ * tsconfig that extends it and appears in `references` below. The root project itself has no sources,
+ * which is why it is a solution-style config (empty `files` list plus project references): a bare
+ * `tsc -p` would fail with TS18002, while `tsc --build` accepts an empty solution and succeeds, so
+ * `npm run typecheck` is a real gate both before and after the first frontend workspace lands.
+ */
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": []
+}

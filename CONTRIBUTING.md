@@ -28,7 +28,7 @@ proposed, reviewed and validated. It is intentionally strict: CI enforces what i
 ## Development workflow
 
 ```bash
-# 1. Install the documented toolchain (see `docs/03-local-development.md`)
+# 1. Install the documented toolchain (see docs/03-local-development.md)
 python -m pip install uv
 uv sync --frozen --all-extras
 uv run pre-commit install
@@ -36,15 +36,14 @@ uv run pre-commit install
 # 2. Create a topic branch
 git switch -c feat/short-description
 
-# 3. Make the change, then run the repository verification entry point
-uv run pre-commit run --all-files
-uv run lint
-uv run typecheck
-uv run test
+# 3. Run the same gates CI runs
+make verify            # policy, format, lint, typecheck, fast tests, frontend tooling
+make test-integration  # when the change touches PostgreSQL, Redis or the collector
 ```
 
-Windows users can run the same logical steps through the commands documented in
-`docs/03-local-development.md`; the repository `Makefile` documents the canonical CI invocation.
+Windows users can run the same logical steps with the explicit commands documented in
+[docs/03-local-development.md](docs/03-local-development.md); the repository `Makefile` documents the
+canonical CI invocation.
 
 ## Commit and branch conventions
 

@@ -24,11 +24,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
-from typing import Sequence
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -220,4 +220,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

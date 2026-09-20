@@ -23,5 +23,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Repository governance: README, LICENSE, contributing guide, code of conduct, security policy, changelog,
   CODEOWNERS, pull request and issue templates, and documented branch-protection recommendations.
+- Tooling standards: `pyproject.toml` (ruff, strict mypy, pytest tiers, coverage gate), flat ESLint
+  configuration, Prettier configuration, shared strict `tsconfig.base.json`, `.editorconfig`,
+  `.pre-commit-config.yaml`, `.golangci.yml` and the `Makefile` verification entry points.
+- Repository policy automation: `scripts/check_repo_policy.py` with unit tests, plus the
+  `repo-policy.yml` workflow that also checks documentation links.
+- Local development documentation with supported runtime versions, tool pinning locations and Windows
+  equivalents for every `make` target (`docs/03-local-development.md`).
 
 [Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main

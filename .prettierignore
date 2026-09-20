@@ -1,0 +1,36 @@
+# Prettier formats code and structured configuration. Long-form prose (Markdown), generated files and
+# infrastructure manifests that are validated by their own tools are excluded so formatting churn never
+# obscures a real change there.
+*.md
+docs/**
+LICENSE
+CHANGELOG.md
+README.md
+
+# Generated and locked files
+uv.lock
+package-lock.json
+go.sum
+.terraform.lock.hcl
+coverage.xml
+
+# Vendored and generated directories
+node_modules/
+.venv/
+.next/
+dist/
+build/
+out/
+htmlcov/
+.trivy/
+sbom/
+
+# Infrastructure and observability descriptors are validated by kubeconform/kube-linter,
+# kustomize, terraform fmt and Prometheus rule tests rather than by Prettier.
+infra/terraform/**
+infra/kubernetes/**
+observability/**
+
+# Environment and policy files that have their own canonical formatting.
+.env.example
+.github/CODEOWNERS

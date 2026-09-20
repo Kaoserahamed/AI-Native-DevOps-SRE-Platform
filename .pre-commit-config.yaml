@@ -1,0 +1,59 @@
+# Pre-commit hooks mirror the CI gates for the checks that can run locally in seconds.
+# Install with: uv run pre-commit install
+# Run on everything: uv run pre-commit run --all-files
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+default_stages:
+  - pre-commit
+# Hooks must terminate rather than wait for input in CI.
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: repository-policy
+        name: repository governance policy
+        entry: python scripts/check_repo_policy.py --quiet
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Manual stage: strict type checking is slower than the fast hooks and is enforced in CI.
+      - id: mypy
+        name: mypy (strict)
+        entry: python -m mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [manual]

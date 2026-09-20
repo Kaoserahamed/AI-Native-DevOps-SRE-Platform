@@ -201,13 +201,13 @@ ai-native-devops-sre/
 **Commit:** `chore: establish repository governance`
 
 ## Task 0.2 — Define coding/tooling standards
-- [ ] Python lint/format/type-check configuration.
-- [ ] TypeScript lint/format/type-check configuration.
-- [ ] Go formatting/lint configuration.
-- [ ] EditorConfig.
-- [ ] Pre-commit configuration where appropriate.
-- [ ] Pin action versions by commit SHA where practical.
-- [ ] Document supported runtime versions.
+- [x] Python lint/format/type-check configuration.
+- [x] TypeScript lint/format/type-check configuration.
+- [x] Go formatting/lint configuration.
+- [x] EditorConfig.
+- [x] Pre-commit configuration where appropriate.
+- [x] Pin action versions by commit SHA where practical.
+- [x] Document supported runtime versions.
 
 **Commit:** `chore: define language and tooling standards`
 
