@@ -30,7 +30,7 @@ describe("demo API client", () => {
 
     const result = await listItems();
 
-    expect(fetchCall(mock).url).toBe("/api/items/");
+    expect(fetchCall(mock).url).toBe("/api/items");
     expect(fetchCall(mock).init.method).toBe("GET");
     expect(result.data).toHaveLength(2);
   });
@@ -62,7 +62,7 @@ describe("demo API client", () => {
     const created = await createItem({ name: "chaos-item", description: "generated" });
     const call = fetchCall(mock);
 
-    expect(call.url).toBe("/api/items/");
+    expect(call.url).toBe("/api/items");
     expect(call.init.method).toBe("POST");
     expect(headerOf(mock, "content-type")).toContain("application/json");
     expect(JSON.parse(String(call.init.body))).toEqual({

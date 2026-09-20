@@ -1,9 +1,10 @@
 /**
  * Typed client for the demo FastAPI backend.
  *
- * The browser always talks to same-origin `/api/*` routes (rewritten to the
- * backend by `next.config.ts`), so no CORS configuration is needed. Server
- * components and scripts talk to the backend directly through `BACKEND_URL`.
+ * The browser always talks to same-origin `/api/*` routes, which the route handler in
+ * `src/app/api/[...path]/route.ts` proxies to the backend at request time, so no CORS configuration is
+ * needed and the backend location stays a deployment concern. Server components and scripts talk to the
+ * backend directly through `BACKEND_URL`.
  *
  * Every response surface includes the `X-Request-ID` correlation ID so the UI
  * can display it and operators can join frontend activity to backend logs,
@@ -133,14 +134,16 @@ export async function fetchJson<T>(
 }
 
 export function listItems(options: RequestOptions = {}): Promise<ApiResult<Item[]>> {
-  return fetchJson<Item[]>("/items/", options);
+  // No trailing slash: Next.js normalises `/api/items/` to `/api/items`, and the proxy resolves the
+  // backend's own canonical redirect, so the canonical path avoids a browser-visible redirect entirely.
+  return fetchJson<Item[]>("/items", options);
 }
 
 export function createItem(
   input: ItemCreate,
   options: RequestOptions = {},
 ): Promise<ApiResult<Item>> {
-  return fetchJson<Item>("/items/", { ...options, method: "POST", body: input });
+  return fetchJson<Item>("/items", { ...options, method: "POST", body: input });
 }
 
 export function getItem(itemId: number, options: RequestOptions = {}): Promise<ApiResult<Item>> {
