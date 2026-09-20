@@ -1,8 +1,9 @@
 // ESLint flat configuration shared by every JavaScript/TypeScript workspace.
 //
-// Deliberately no type-aware linting: `parserOptions.project` requires a TypeScript project that only
-// exists once a workspace has sources, and the frontend phase adds its own type-checked overlay. The
-// frontend workspace also declares browser globals itself.
+// Deliberately no type-aware linting: `parserOptions.project` requires a TypeScript project per linted
+// file, and type checking is already enforced separately and strictly by `tsc --build` in
+// scripts/typecheck.mjs. Keeping ESLint type-unaware means the lint gate stays fast and independent of
+// which dependencies happen to be installed locally.
 import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
@@ -76,6 +77,18 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+    },
+  },
+  {
+    // The demo frontend executes both in the browser (React client components) and in Next.js's Node.js
+    // server runtime (server components, config files), so both global sets apply. Listing them keeps
+    // `no-undef` meaningful instead of disabling it for the workspace.
+    files: ["apps/**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
   },
   {

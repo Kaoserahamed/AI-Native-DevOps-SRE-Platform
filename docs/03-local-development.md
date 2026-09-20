@@ -61,7 +61,7 @@ The `make` targets are the canonical entry points; CI runs the same underlying c
 | Integration tests | `make test-integration` | `pytest -m integration` against ephemeral services |
 | Agent evaluation suite | `make test-agent-eval` | `pytest -m agent_eval` |
 | Repository policy | `make policy` | `scripts/check_repo_policy.py` |
-| Frontend lint/format/type-check | `make frontend` | `eslint`, `prettier`, `scripts/typecheck.mjs` |
+| Frontend lint/format/type-check/tests | `make frontend` | `eslint`, `prettier`, `scripts/typecheck.mjs`, `vitest` with the coverage gate |
 | Everything CI runs on a pull request | `make verify` | every fast gate above |
 
 ### Windows equivalents
@@ -82,6 +82,7 @@ python scripts/check_repo_policy.py
 node node_modules/eslint/bin/eslint.js .
 node node_modules/prettier/bin/prettier.cjs --check .
 node scripts/typecheck.mjs
+node node_modules/vitest/vitest.mjs run --root apps/demo-app/frontend --coverage
 ```
 
 
@@ -101,11 +102,19 @@ node scripts/typecheck.mjs
 ### TypeScript and JavaScript
 
 - `tsconfig.base.json` holds the shared strict compiler options; every workspace extends it.
+- npm workspaces keep one dependency graph: `npm ci` at the repository root installs the repository
+  tooling and every workspace (`apps/demo-app/frontend` today) from the committed `package-lock.json`.
 - `eslint.config.mjs` is a flat configuration combining the recommended JavaScript and TypeScript rule sets
-  with Prettier compatibility. Type-aware linting arrives with the frontend workspace, which owns a
-  TypeScript project.
-- `scripts/typecheck.mjs` builds every discovered workspace project, so the root `npm run typecheck` is a
-  real gate before and after the first workspace exists.
+  with Prettier compatibility. It is deliberately not type-aware: `scripts/typecheck.mjs` performs strict
+  type checking separately, so the lint gate stays fast and does not depend on which dependencies are
+  installed.
+- `scripts/typecheck.mjs` discovers every workspace `tsconfig.json` and builds it with the TypeScript
+  version **that workspace pins**, falling back to the root compiler only when a workspace declares none.
+  A workspace pinning an older compiler (for example one required by its framework) is therefore never
+  checked by the root toolchain by accident.
+- Workspace unit tests run with `vitest`; the demo frontend enforces coverage thresholds in
+  `vitest.config.ts` (85% statements, branches, functions and lines) and runs them through
+  `npm run verify`. Unit and component tests never need a live backend: they stub `fetch`.
 - Prettier formats code and configuration; Markdown, infrastructure manifests and generated files are
   excluded in `.prettierignore` so formatting churn never hides a real change.
 

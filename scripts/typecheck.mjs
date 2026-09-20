@@ -8,6 +8,10 @@
  * and `services/`, and builds them one by one. When no workspace exists yet it reports that fact and
  * exits successfully, so `npm run typecheck` is a meaningful gate at every phase of the project.
  *
+ * Each workspace is type-checked with the TypeScript version it pins itself, falling back to the root
+ * toolchain when the workspace does not declare one. That keeps a workspace (for example a framework
+ * pinning an older compiler) reproducible instead of silently inheriting the root compiler.
+ *
  * Usage: node scripts/typecheck.mjs
  */
 import { spawnSync } from "node:child_process";
@@ -62,15 +66,35 @@ if (configs.length === 0) {
   process.exit(0);
 }
 
-const tscPath = require.resolve("typescript/bin/tsc");
+/**
+ * Resolve the TypeScript compiler a workspace should be checked with: the version it pins itself when
+ * it declares one, otherwise the repository toolchain.
+ *
+ * @param {string} config absolute path of the workspace tsconfig.json
+ * @returns {{ path: string, source: "workspace" | "root" }}
+ */
+function resolveCompiler(config) {
+  const workspaceRequire = createRequire(path.join(path.dirname(config), "package.json"));
+  try {
+    return { path: workspaceRequire.resolve("typescript/bin/tsc"), source: "workspace" };
+  } catch {
+    return { path: require.resolve("typescript/bin/tsc"), source: "root" };
+  }
+}
+
 const failed = [];
 for (const config of configs) {
   const relativeConfig = path.relative(REPOSITORY_ROOT, config).split(path.sep).join("/");
-  console.info(`typecheck: building ${relativeConfig}`);
-  const result = spawnSync(process.execPath, [tscPath, "--build", config, "--pretty", "false"], {
-    cwd: REPOSITORY_ROOT,
-    stdio: "inherit",
-  });
+  const compiler = resolveCompiler(config);
+  console.info(`typecheck: building ${relativeConfig} with the ${compiler.source} TypeScript`);
+  const result = spawnSync(
+    process.execPath,
+    [compiler.path, "--build", config, "--pretty", "false"],
+    {
+      cwd: REPOSITORY_ROOT,
+      stdio: "inherit",
+    },
+  );
   if (result.status !== 0) {
     failed.push(relativeConfig);
   }

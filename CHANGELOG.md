@@ -45,5 +45,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   foundational decisions: Kubernetes deployment model, OpenTelemetry architecture, Prometheus/Grafana,
   PostgreSQL storage, Redis queue and cache, LLM provider abstraction, human approval model, GitHub
   integration and Terraform environment separation.
+- Prometheus metric exposition tests: declared histogram bounds stay finite and ascending, every observed
+  series exposes exactly one `+Inf` bucket, and the service info metric carries the identity labels the
+  dashboards join on (`tests/demo_api/test_metrics.py`).
+- Demo web frontend (`apps/demo-app/frontend`): a typed demo API client, a service status panel that
+  separates liveness from readiness and treats a `503` readiness payload as a degraded result rather than a
+  transport error, an items inventory panel with loading, error and empty states, request-correlation
+  display, npm workspace wiring that installs from the single committed lockfile, and unit and component
+  tests with an enforced coverage gate.
+- Frontend tooling guarantees: `scripts/typecheck.mjs` now type-checks each workspace with the TypeScript
+  version that workspace pins, and a documented configuration reference covers the frontend and explains
+  why its variables must not live in the demo API's `.env`
+  (`apps/demo-app/README.md`, `docs/03-local-development.md`, `docs/04-configuration.md`).
+
+### Fixed
+
+- `npm run format:check` succeeds on a clean checkout: the generated contract schemas are now excluded from
+  Prettier, which disagreed with the generator that owns their formatting and therefore failed the gate.
 
 [Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main

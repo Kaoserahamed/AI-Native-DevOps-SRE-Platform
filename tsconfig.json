@@ -2,10 +2,15 @@
  * TypeScript workspace solution file.
  *
  * `tsconfig.base.json` holds the shared strict compiler options; each TypeScript workspace has its own
- * tsconfig that extends it and appears in `references` below. The root project itself has no sources,
- * which is why it is a solution-style config (empty `files` list plus project references): a bare
- * `tsc -p` would fail with TS18002, while `tsc --build` accepts an empty solution and succeeds, so
- * `npm run typecheck` is a real gate both before and after the first frontend workspace lands.
+ * tsconfig that extends it. The root project itself has no sources, which is why it is a solution-style
+ * config (empty `files` list): a bare `tsc -p` would fail with TS18002, while an empty solution is
+ * accepted and `npm run typecheck` stays a meaningful gate at every phase.
+ *
+ * `references` stays empty on purpose. A project reference requires `composite: true` and declaration
+ * emit in the referenced project, which conflicts with the type-check-only (`noEmit`) workspace setup.
+ * `scripts/typecheck.mjs` instead discovers every workspace project and builds it with the TypeScript
+ * version that workspace pins, so a framework pinning an older compiler is never checked by the root
+ * toolchain by accident.
  */
 {
   "$schema": "https://json.schemastore.org/tsconfig",

@@ -43,7 +43,7 @@ test-agent-eval: ## Run the agent evaluation and regression suite
 policy: ## Validate repository governance policy
 	$(UV) run python scripts/check_repo_policy.py
 
-frontend: ## Lint, format-check and type-check TypeScript workspaces
+frontend: ## Lint, format-check, type-check and test the TypeScript workspaces
 	npm run --silent verify
 
 verify: policy format-check lint typecheck test frontend ## Run every fast gate CI enforces on a pull request

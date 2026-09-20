@@ -36,9 +36,10 @@ The platform is built incrementally. This table tracks the phases defined in
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 0 (Task 0.1) | Repository governance | Implemented |
-| 0 (Tasks 0.2-0.3) | Tooling standards, reproducible dependencies | Planned |
-| 1 | Architecture, ADRs, versioned contracts | Planned |
-| 2 | Demo production application (FastAPI + Next.js + containers) | Planned |
+| 0 (Tasks 0.2-0.3) | Tooling standards, reproducible dependencies | Implemented |
+| 1 | Architecture, ADRs, versioned contracts | Implemented |
+| 2 (Tasks 2.1-2.2) | Demo production application: FastAPI service, Next.js frontend | Implemented |
+| 2 (Task 2.3) | Hardened application containers | Planned |
 | 3-4 | Kubernetes platform, Terraform infrastructure | Planned |
 | 5-7 | OpenTelemetry, Prometheus/Grafana, SLO/incident model | Planned |
 | 8-12 | AI agent runtime, remediation, governance/audit | Planned |
@@ -60,7 +61,7 @@ cd AI-Native-DevOps-SRE-Platform
 python -m pip install uv
 uv sync --frozen --all-extras
 uv run pre-commit install
-npm ci
+npm ci                 # repository tooling plus every npm workspace (the demo frontend)
 ```
 
 Every gate CI runs on a pull request is available locally through one command:
@@ -76,7 +77,7 @@ equivalent commands, including the Node tooling fallback for clone paths that co
 ## Repository layout
 
 ```text
-apps/demo-app/       Demo workload: FastAPI backend, Next.js frontend, its own tests
+apps/demo-app/       Demo workload: Next.js frontend (npm workspace) and the workload README
 services/            Platform services: api, incident-agent, anomaly-agent, remediation-agent, worker
 packages/            Shared libraries: contracts, observability, github_client, kubernetes_client,
                      llm, policy, test_fixtures
@@ -92,7 +93,7 @@ tests/               Cross-cutting contract, integration, e2e, chaos suites and 
 
 Repository-wide governance, architecture and development documents are available now; the remaining
 documents are added by the phase that implements them and linked here once they exist
-(`docs/04-configuration.md`, `docs/05-api.md`, `docs/06-data-model.md`, `docs/07-observability.md`,
+(`docs/05-api.md`, `docs/06-data-model.md`, `docs/07-observability.md`,
 `docs/08-ai-agents.md`, `docs/09-incident-lifecycle.md`, `docs/10-security.md`,
 `docs/11-threat-model.md`, `docs/12-kubernetes.md`, `docs/13-terraform.md`, `docs/14-ci-cd.md`,
 `docs/15-testing-strategy.md`, `docs/16-sre-slos.md`, `docs/17-cost-optimization.md`,
@@ -103,6 +104,8 @@ documents are added by the phase that implements them and linked here once they 
 | [docs/00-overview.md](docs/00-overview.md) | Purpose, principles, audience and glossary |
 | [docs/01-architecture.md](docs/01-architecture.md) | Context, components, trust boundaries, failure domains |
 | [docs/03-local-development.md](docs/03-local-development.md) | Supported runtimes, tooling pins, canonical commands |
+| [docs/04-configuration.md](docs/04-configuration.md) | Every environment variable the platform reads |
+| [apps/demo-app/README.md](apps/demo-app/README.md) | The demo workload: endpoints, panels, tests, configuration |
 | [docs/18-governance.md](docs/18-governance.md) | Branch protection, review and change policy |
 | [docs/adr/](docs/adr/README.md) | Architecture decision records |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose and validate changes |

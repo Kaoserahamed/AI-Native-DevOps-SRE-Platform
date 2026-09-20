@@ -34,3 +34,30 @@ Copy the template and run locally:
 cp .env.example .env
 uv run python -m services.demo_api
 ```
+
+Do not add unrelated keys to that file: `Settings` uses `extra="forbid"`, so an unknown key in `.env`
+fails startup with a validation error instead of being ignored. Application code that needs a variable
+the model does not declare must declare a field for it in the same change.
+
+## Demo frontend (`apps/demo-app/frontend`)
+
+The frontend is an npm workspace of the repository root and is configured through the process
+environment. It does not read the demo API's `.env` file — that file belongs to the API service and is
+not loaded by Next.js from the repository root.
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `BACKEND_URL` | no | `http://localhost:8000` | Rewrite target for the `/api/*` proxy that `next.config.ts` creates, and the base URL for requests issued from the Next.js server runtime. |
+| `NEXT_PUBLIC_BACKEND_URL` | no | unset | Fallback base URL used when `BACKEND_URL` is unset. The browser never uses it: client components always call same-origin `/api`, so no CORS configuration is required. |
+| `PORT` | no | `3000` | Port for the standalone server produced by `next build` (`node .next/standalone/server.js`). Read by the standalone server, not by the application. |
+| `HOSTNAME` | no | `0.0.0.0` | Bind address for the standalone server. |
+| `NEXT_TELEMETRY_DISABLED` | no | unset | Set to `1` in containers and CI so the Next.js build never reaches out to the telemetry endpoint. |
+
+### Where frontend variables must not live
+
+`BACKEND_URL` and the other frontend variables deliberately have **no entry in `.env.example`**. That
+file becomes the demo API's `.env`, and the API's settings model rejects unknown keys, so a frontend
+variable there would break the API at startup. Pass frontend configuration through the shell, the
+container environment or the Kubernetes manifest instead (this is also what the deployment manifests
+do).
+

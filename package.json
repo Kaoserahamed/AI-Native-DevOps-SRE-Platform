@@ -12,13 +12,18 @@
     "node": ">=20.19.0",
     "npm": ">=10.0.0"
   },
+  "workspaces": [
+    "apps/demo-app/frontend"
+  ],
   "scripts": {
     "lint": "eslint . --max-warnings=0 --no-error-on-unmatched-pattern",
     "lint:fix": "eslint . --fix --no-error-on-unmatched-pattern",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "node scripts/typecheck.mjs",
-    "verify": "npm run lint && npm run format:check && npm run typecheck"
+    "test:frontend": "npm run test:coverage --workspace @demo-app/frontend",
+    "test:frontend:smoke": "npm run test:smoke --workspace @demo-app/frontend",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:frontend"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

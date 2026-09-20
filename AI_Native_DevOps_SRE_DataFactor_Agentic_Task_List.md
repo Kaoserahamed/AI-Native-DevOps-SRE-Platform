@@ -294,12 +294,12 @@ The repository needs a realistic target workload so the platform can produce and
 **Commit:** `feat: add observable FastAPI demo service`
 
 ## Task 2.2 — Next.js demo frontend
-- [ ] Typed API client.
-- [ ] Loading/error states.
-- [ ] Health/status view.
-- [ ] Request correlation display where useful.
+- [x] Typed API client.
+- [x] Loading/error states.
+- [x] Health/status view.
+- [x] Request correlation display where useful.
 - [ ] Production Docker build.
-- [ ] Basic component tests.
+- [x] Basic component tests.
 - [ ] E2E smoke tests.
 
 **Commit:** `feat: add demo web frontend`
