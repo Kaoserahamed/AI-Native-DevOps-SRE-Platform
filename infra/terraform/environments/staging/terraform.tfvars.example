@@ -1,0 +1,12 @@
+# Staging environment variables.
+# Copy to terraform.tfvars and adjust before running.
+
+environment = "staging"
+
+postgresql_username = "ai_native_admin"
+
+# Staging uses mutable tags to speed up iteration.
+container_registry_image_tag_mutability = "MUTABLE"
+
+# Managed Prometheus workspace is created for staging observability.
+create_managed_prometheus = true

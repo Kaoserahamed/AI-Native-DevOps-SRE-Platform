@@ -13,3 +13,12 @@ metadata:
   labels:
     app.kubernetes.io/part-of: demo-app
     app.kubernetes.io/managed-by: kustomize
+    # Task 3.3 — Pod Security Standards: enforce the restricted profile in this namespace.
+    # The workloads in `base/` satisfy restricted: non-root, read-only root filesystem,
+    # no privilege escalation, all capabilities dropped, seccomp RuntimeDefault, no host
+    # namespaces, no privileged containers. A workload that cannot meet restricted must
+    # come as its own reviewed change and may opt into the baseline profile only with
+    # explicit justification in the PR.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

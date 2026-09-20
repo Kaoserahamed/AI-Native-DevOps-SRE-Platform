@@ -1,0 +1,32 @@
+# Development environment variables.
+# Copy to terraform.tfvars and adjust before running.
+# Secrets are not committed; configure them via AWS Secrets Manager or
+# environment variables when running locally with Terraform.
+
+environment = "dev"
+
+postgresql_username = "ai_native_admin"
+
+# NAT gateways are disabled in dev to reduce cost when the VPC does not
+# need outbound internet from private subnets.
+enable_nat_gateways = false
+
+# Dev uses smaller instance types and fewer nodes.
+kubernetes_node_instance_types = ["t3.small"]
+kubernetes_desired_size = 1
+kubernetes_min_size = 1
+kubernetes_max_size = 2
+
+# Dev PostgreSQL is the smallest practical instance.
+postgresql_instance_class = "db.t3.micro"
+postgresql_allocated_storage = 10
+postgresql_max_allocated_storage = 20
+
+# Dev Redis is the smallest practical node.
+redis_node_type = "cache.t3.micro"
+
+# Mutable tags in dev so iterative rebuilds are cheap.
+container_registry_image_tag_mutability = "MUTABLE"
+
+# Managed Prometheus workspace is created for dev observability.
+create_managed_prometheus = true

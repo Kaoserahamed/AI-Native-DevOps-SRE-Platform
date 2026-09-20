@@ -1,0 +1,21 @@
+# Production environment variables.
+# Copy to terraform.tfvars and fill in secrets before running.
+
+environment = "production"
+
+# aws_region and vpc_cidr are usually pinned per environment and not overridden.
+
+postgresql_username = "ai_native_admin"
+# postgresql_password is set via AWS Secrets Manager, not in this file.
+
+# PostgreSQL deletion protection is enabled in production.
+postgresql_deletion_protection = true
+
+# Redis AUTH token is set via AWS Secrets Manager.
+# redis_auth_token is not placed here.
+
+# Container registry uses immutable tags in production.
+container_registry_image_tag_mutability = "IMMUTABLE"
+
+# Managed Prometheus workspace is created for production observability.
+create_managed_prometheus = true
