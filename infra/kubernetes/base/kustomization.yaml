@@ -20,3 +20,4 @@ resources:
   - autoscalers.yaml
   - poddisruptionbudgets.yaml
   - networkpolicies.yaml
+  - policies/kustomization.yaml

@@ -1,0 +1,10 @@
+# Security policy manifests for the demo namespace.
+#
+# These live in `base/policies/` rather than at the top of `base/` so that the
+# policy surface is reviewable as a unit separate from the workloads. The
+# kustomization index at `base/kustomization.yaml` lists this file so the
+# policies are applied whenever `base` is consumed.
+#
+# (Task 3.3 — Kubernetes security controls.)
+resources:
+  - rbac.yaml

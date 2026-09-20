@@ -1,0 +1,37 @@
+# Staging overlay.
+#
+# Staging mirrors production as closely as possible except for replica count
+# and resource sizing, so a failure mode discovered here is a realistic
+# predictor of production behavior. Tracing is enabled and the failure mode
+# flag is always unset (ADR-0001).
+namespace: demo
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: demo-api-config
+    patch: |-
+      - op: replace
+        path: /data/APP_ENV
+        value: staging
+  - target:
+      kind: Deployment
+      name: demo-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+  - target:
+      kind: Deployment
+      name: demo-web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+labels:
+  - pairs:
+      environment: staging

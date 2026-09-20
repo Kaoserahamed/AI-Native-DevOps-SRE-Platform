@@ -1,0 +1,63 @@
+# Production overlay.
+#
+# Production runs the same image as every other environment, referenced by an
+# immutable digest rather than a tag (Task 17.1). The digest is supplied by the
+# CI/CD workflow that promotes a build; the value here is a placeholder for
+# local review so kustomize build always succeeds without a registry lookup.
+#
+# (ADR-0001)
+namespace: demo
+
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/kaoserahamed/demo-api
+    newTag: 0.1.0-sha-placeholder
+  - name: ghcr.io/kaoserahamed/demo-web
+    newTag: 0.1.0-sha-placeholder
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: demo-api-config
+    patch: |-
+      - op: replace
+        path: /data/APP_ENV
+        value: production
+  - target:
+      kind: Deployment
+      name: demo-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+  - target:
+      kind: Deployment
+      name: demo-web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 192Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+labels:
+  - pairs:
+      environment: production

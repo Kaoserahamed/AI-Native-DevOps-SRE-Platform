@@ -1,0 +1,65 @@
+# Development overlay.
+#
+# Development is the only environment that enables the demo API's test-only
+# failure modes (Task 2.1). The settings model rejects FAILURE_MODE outside
+# development, so enabling it here satisfies that validation and a policy
+# test that no other overlay may set it.
+#
+# (ADR-0001)
+namespace: demo
+
+resources:
+  - ../../base
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: demo-api-config
+    patch: |-
+      - op: replace
+        path: /data/APP_ENV
+        value: development
+      - op: replace
+        path: /data/LOG_LEVEL
+        value: DEBUG
+      - op: replace
+        path: /data/ENABLE_TRACING
+        value: "false"
+      - op: replace
+        path: /data/FAILURE_MODE
+        value: slow
+      - op: replace
+        path: /data/FAILURE_RATE
+        value: "0.3"
+  - target:
+      kind: Deployment
+      name: demo-api
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+  - target:
+      kind: Deployment
+      name: demo-web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi

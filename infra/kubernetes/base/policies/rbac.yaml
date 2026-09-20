@@ -1,0 +1,39 @@
+# RBAC for the demo workloads.
+#
+# Principle of least privilege: neither workload calls the Kubernetes API, so
+# neither ServiceAccount is granted any Role. The identities exist only so pods
+# are attributable in audit logs and can be referenced by admission policy.
+# Adding API permission to one of them is a security-relevant action and must
+# come as its own reviewable change.
+#
+# (Task 3.3 — RBAC minimization.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: demo
+  name: demo-api-restricted-api-access
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+# Intentionally empty: no verbs. The role exists to make an explicit
+# allowlist that an audit ("does demo-api have API access? → no") can confirm.
+rules: []
+---
+# A RoleBinding that binds the empty Role to the demo-api account keeps the
+# intent explicit: the account is bound to no permissions.
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: demo
+  name: demo-api-restricted-api-access
+  labels:
+    app.kubernetes.io/part-of: demo-app
+    app.kubernetes.io/managed-by: kustomize
+subjects:
+  - kind: ServiceAccount
+    name: demo-api
+    namespace: demo
+roleRef:
+  kind: Role
+  name: demo-api-restricted-api-access
+  apiGroup: rbac.authorization.k8s.io
