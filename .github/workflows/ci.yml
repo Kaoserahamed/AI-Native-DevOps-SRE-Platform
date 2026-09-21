@@ -105,7 +105,7 @@ jobs:
           uv pip install --system pytest pytest-cov pytest-asyncio
       
       - name: Run unit tests with coverage
-        run: pytest tests/unit/ -v --cov=services --cov=packages --cov-report=xml --cov-report=term
+        run: pytest tests/unit/ -v --cov=services --cov=packages --cov-report=xml --cov-report=term --cov-fail-under=90
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -195,7 +195,7 @@ jobs:
           uv pip install --system pytest pytest-asyncio asyncpg redis
       
       - name: Run integration tests
-        run: pytest tests/integration/ -v
+        run: pytest tests/integration/ -v --cov=services --cov=packages --cov-report=xml --cov-report=term --cov-fail-under=70
         env:
           DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0

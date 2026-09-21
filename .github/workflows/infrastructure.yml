@@ -43,6 +43,19 @@ jobs:
             fi
           done
 
+      - name: Terraform plan (dry-run)
+        working-directory: infra/terraform
+        run: |
+          for env in environments/*/; do
+            if [ -d "$env" ]; then
+              echo "Planning $env"
+              cd "$env"
+              terraform plan -input=false -out=tfplan || echo "Plan failed for $env (expected without backend)"
+              cd -
+            fi
+          done
+        continue-on-error: true  # May fail without real backend configuration
+
       - name: Terraform validate
         working-directory: infra/terraform
         run: |
@@ -54,6 +67,24 @@ jobs:
               cd -
             fi
           done
+
+      - name: Run Checkov IaC security scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra/terraform
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-terraform.sarif
+          soft_fail: false
+          quiet: false
+          skip_check: CKV_AWS_158,CKV_AWS_173  # Skip checks that may not apply to all environments
+
+      - name: Upload Checkov results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-terraform.sarif
+          category: "checkov-terraform"
 
       - name: Run Trivy IaC scan
         uses: aquasecurity/trivy-action@0.29.0

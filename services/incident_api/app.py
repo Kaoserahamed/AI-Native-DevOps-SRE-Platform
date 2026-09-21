@@ -6,7 +6,7 @@ and state transitions.
 
 from __future__ import annotations
 
-import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -17,10 +17,20 @@ from packages.contracts.audit import ActorType, AuditEntry
 from packages.contracts.common import Identifier, PrincipalId
 from packages.contracts.evidence import Evidence
 from packages.contracts.incidents import Incident, IncidentStatus
+from packages.observability.logging_config import configure_logging, get_logger, bind_correlation_id, unbind_context
 from packages.persistence.repositories import AuditRepository, EvidenceRepository, IncidentRepository
 from datetime import UTC, datetime
 
-logger = logging.getLogger(__name__)
+# Configure structured logging on module import
+configure_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    service_name="incident-api",
+    environment=os.getenv("ENVIRONMENT", "development"),
+    enable_sentry=os.getenv("SENTRY_DSN") is not None,
+    sentry_dsn=os.getenv("SENTRY_DSN"),
+)
+
+logger = get_logger(__name__)
 
 
 class IncidentCreateRequest(BaseModel):
@@ -87,9 +97,9 @@ def get_audit_repo() -> AuditRepository:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
-    logger.info("Incident API starting")
+    logger.info("incident_api_starting", version="1.0.0", environment=os.getenv("ENVIRONMENT", "development"))
     yield
-    logger.info("Incident API shutting down")
+    logger.info("incident_api_shutting_down")
 
 
 def create_app() -> FastAPI:

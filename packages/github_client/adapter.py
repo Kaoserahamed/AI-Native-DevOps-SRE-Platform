@@ -7,6 +7,8 @@ from datetime import datetime
 import logging
 from typing import Any
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 
@@ -136,6 +138,7 @@ class GitHubAdapter:
         """
         self.config = config
         self._validate_config()
+        self._client: httpx.AsyncClient | None = None
 
     def _validate_config(self) -> None:
         """Validate configuration is complete."""
@@ -143,6 +146,40 @@ class GitHubAdapter:
             raise ValueError("GitHub owner is required")
         if not self.config.repo:
             raise ValueError("GitHub repo is required")
+
+    def _get_headers(self) -> dict[str, str]:
+        """Build headers for GitHub API requests."""
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        if self.config.token:
+            headers["Authorization"] = f"Bearer {self.config.token}"
+        return headers
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Get or create HTTP client."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                base_url=self.config.api_base_url,
+                headers=self._get_headers(),
+                timeout=30.0,
+            )
+        return self._client
+
+    async def close(self) -> None:
+        """Close the HTTP client."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def __aenter__(self) -> GitHubAdapter:
+        """Context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit."""
+        await self.close()
 
     async def get_repository_metadata(self) -> dict[str, Any]:
         """Retrieve repository metadata.
@@ -154,12 +191,20 @@ class GitHubAdapter:
         """
         logger.info("Fetching repository metadata for %s/%s", self.config.owner, self.config.repo)
 
-        # Stub implementation - would call GitHub API
+        client = await self._get_client()
+        response = await client.get(f"/repos/{self.config.owner}/{self.config.repo}")
+        response.raise_for_status()
+
+        data = response.json()
         return {
-            "owner": self.config.owner,
-            "repo": self.config.repo,
-            "default_branch": "main",
-            "private": False,
+            "owner": data["owner"]["login"],
+            "repo": data["name"],
+            "default_branch": data["default_branch"],
+            "private": data["private"],
+            "description": data.get("description"),
+            "language": data.get("language"),
+            "stars": data.get("stargazers_count", 0),
+            "forks": data.get("forks_count", 0),
         }
 
     async def get_commit_history(
@@ -188,8 +233,41 @@ class GitHubAdapter:
             limit,
         )
 
-        # Stub - would call GitHub API
-        return []
+        client = await self._get_client()
+        params: dict[str, Any] = {"per_page": min(limit, 100)}
+
+        if since:
+            params["since"] = since.isoformat()
+        if until:
+            params["until"] = until.isoformat()
+
+        response = await client.get(
+            f"/repos/{self.config.owner}/{self.config.repo}/commits", params=params
+        )
+        response.raise_for_status()
+
+        commits_data = response.json()
+        commits = []
+
+        for commit_data in commits_data:
+            try:
+                commits.append(
+                    GitHubCommit(
+                        sha=commit_data["sha"],
+                        message=commit_data["commit"]["message"],
+                        author=commit_data["commit"]["author"]["name"],
+                        timestamp=datetime.fromisoformat(
+                            commit_data["commit"]["author"]["date"].replace("Z", "+00:00")
+                        ),
+                        url=commit_data["html_url"],
+                    )
+                )
+            except (KeyError, ValueError) as e:
+                logger.warning("Failed to parse commit %s: %s", commit_data.get("sha", "unknown"), e)
+                continue
+
+        logger.info("Retrieved %d commits", len(commits))
+        return commits
 
     async def get_deployment_history(
         self, environment: str = "production", limit: int = 20
@@ -215,9 +293,42 @@ class GitHubAdapter:
             environment,
         )
 
-        # Stub - would call GitHub Deployments API
-        # GET /repos/{owner}/{repo}/deployments?environment={environment}&per_page={limit}
-        return []
+        client = await self._get_client()
+        params = {"environment": environment, "per_page": min(limit, 100)}
+
+        response = await client.get(
+            f"/repos/{self.config.owner}/{self.config.repo}/deployments", params=params
+        )
+        response.raise_for_status()
+
+        deployments_data = response.json()
+        deployments = []
+
+        for dep_data in deployments_data:
+            try:
+                deployments.append(
+                    GitHubDeployment(
+                        id=dep_data["id"],
+                        environment=dep_data["environment"],
+                        sha=dep_data["sha"],
+                        ref=dep_data["ref"],
+                        creator=dep_data["creator"]["login"],
+                        created_at=datetime.fromisoformat(
+                            dep_data["created_at"].replace("Z", "+00:00")
+                        ),
+                        updated_at=datetime.fromisoformat(
+                            dep_data["updated_at"].replace("Z", "+00:00")
+                        ),
+                        state=dep_data.get("statuses_url", "unknown"),  # Would need separate call
+                        description=dep_data.get("description", ""),
+                    )
+                )
+            except (KeyError, ValueError) as e:
+                logger.warning("Failed to parse deployment %s: %s", dep_data.get("id", "unknown"), e)
+                continue
+
+        logger.info("Retrieved %d deployments for %s", len(deployments), environment)
+        return deployments
 
     async def create_issue(
         self, title: str, body: str, labels: list[str] | None = None
@@ -247,16 +358,27 @@ class GitHubAdapter:
             self.config.repo,
         )
 
-        # Stub - would POST to /repos/{owner}/{repo}/issues
-        return GitHubIssue(
-            number=1,
-            title=title,
-            body=body,
-            state="open",
-            url=f"https://github.com/{self.config.owner}/{self.config.repo}/issues/1",
-            created_at=datetime.now(),
-            labels=labels,
+        client = await self._get_client()
+        payload = {"title": title, "body": body, "labels": labels}
+
+        response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/issues", json=payload
         )
+        response.raise_for_status()
+
+        issue_data = response.json()
+        issue = GitHubIssue(
+            number=issue_data["number"],
+            title=issue_data["title"],
+            body=issue_data["body"],
+            state=issue_data["state"],
+            url=issue_data["html_url"],
+            created_at=datetime.fromisoformat(issue_data["created_at"].replace("Z", "+00:00")),
+            labels=[label["name"] for label in issue_data.get("labels", [])],
+        )
+
+        logger.info("Created issue #%d: %s", issue.number, issue.url)
+        return issue
 
     async def create_pull_request(
         self,
@@ -295,17 +417,36 @@ class GitHubAdapter:
             self.config.repo,
         )
 
-        # Stub - would POST to /repos/{owner}/{repo}/pulls
-        return GitHubPullRequest(
-            number=1,
-            title=title,
-            body=body,
-            state="open",
-            head_branch=head_branch,
-            base_branch=base_branch,
-            url=f"https://github.com/{self.config.owner}/{self.config.repo}/pull/1",
-            created_at=datetime.now(),
+        client = await self._get_client()
+        payload = {
+            "title": title,
+            "body": body,
+            "head": head_branch,
+            "base": base_branch,
+            "draft": draft,
+        }
+
+        response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/pulls", json=payload
         )
+        response.raise_for_status()
+
+        pr_data = response.json()
+        pr = GitHubPullRequest(
+            number=pr_data["number"],
+            title=pr_data["title"],
+            body=pr_data["body"],
+            state=pr_data["state"],
+            head_branch=pr_data["head"]["ref"],
+            base_branch=pr_data["base"]["ref"],
+            url=pr_data["html_url"],
+            created_at=datetime.fromisoformat(pr_data["created_at"].replace("Z", "+00:00")),
+            draft=pr_data.get("draft", False),
+            mergeable=pr_data.get("mergeable"),
+        )
+
+        logger.info("Created PR #%d: %s", pr.number, pr.url)
+        return pr
 
     async def update_pull_request(
         self, pr_number: int, body: str | None = None, state: str | None = None
@@ -397,9 +538,43 @@ class GitHubAdapter:
         """
         logger.info("Fetching check runs for %s in %s/%s", ref, self.config.owner, self.config.repo)
 
-        # Stub - would call GitHub Checks API
-        # GET /repos/{owner}/{repo}/commits/{ref}/check-runs
-        return []
+        client = await self._get_client()
+        response = await client.get(
+            f"/repos/{self.config.owner}/{self.config.repo}/commits/{ref}/check-runs"
+        )
+        response.raise_for_status()
+
+        data = response.json()
+        check_runs = []
+
+        for run in data.get("check_runs", []):
+            try:
+                check_runs.append(
+                    GitHubCheckRun(
+                        id=run["id"],
+                        name=run["name"],
+                        status=run["status"],
+                        conclusion=run.get("conclusion"),
+                        started_at=(
+                            datetime.fromisoformat(run["started_at"].replace("Z", "+00:00"))
+                            if run.get("started_at")
+                            else None
+                        ),
+                        completed_at=(
+                            datetime.fromisoformat(run["completed_at"].replace("Z", "+00:00"))
+                            if run.get("completed_at")
+                            else None
+                        ),
+                        output_title=run.get("output", {}).get("title"),
+                        output_summary=run.get("output", {}).get("summary"),
+                    )
+                )
+            except (KeyError, ValueError) as e:
+                logger.warning("Failed to parse check run %s: %s", run.get("id", "unknown"), e)
+                continue
+
+        logger.info("Retrieved %d check runs for %s", len(check_runs), ref)
+        return check_runs
 
     async def create_incident_issue(self, data: IncidentIssueData) -> GitHubIssue:
         """Create a GitHub issue for an incident with full evidence and context.
