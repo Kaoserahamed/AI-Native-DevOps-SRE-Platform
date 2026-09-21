@@ -94,7 +94,7 @@ tests/               Cross-cutting contract, integration, e2e, chaos suites and 
 Repository-wide governance, architecture and development documents are available now; the remaining
 documents are added by the phase that implements them and linked here once they exist
 (`docs/05-api.md`, `docs/06-data-model.md`, `docs/07-observability.md`,
-`docs/08-ai-agents.md`, `docs/09-incident-lifecycle.md`, `docs/10-security.md`,
+`docs/09-incident-lifecycle.md`, `docs/10-security.md`,
 `docs/11-threat-model.md`, `docs/12-kubernetes.md`, `docs/13-terraform.md`, `docs/14-ci-cd.md`,
 `docs/15-testing-strategy.md`, `docs/16-sre-slos.md`, `docs/17-cost-optimization.md`,
 `docs/19-disaster-recovery.md`, `docs/20-runbooks/`).
@@ -105,6 +105,7 @@ documents are added by the phase that implements them and linked here once they 
 | [docs/01-architecture.md](docs/01-architecture.md) | Context, components, trust boundaries, failure domains |
 | [docs/03-local-development.md](docs/03-local-development.md) | Supported runtimes, tooling pins, canonical commands |
 | [docs/04-configuration.md](docs/04-configuration.md) | Every environment variable the platform reads |
+| [docs/08-ai-agents.md](docs/08-ai-agents.md) | LLM interface, budgets, retry/fallback policy, agent verification |
 | [apps/demo-app/README.md](apps/demo-app/README.md) | The demo workload: endpoints, panels, tests, configuration |
 | [docs/18-governance.md](docs/18-governance.md) | Branch protection, review and change policy |
 | [docs/adr/](docs/adr/README.md) | Architecture decision records |

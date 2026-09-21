@@ -66,9 +66,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the `uv` tool and the base images, expose OCI provenance labels fed by `APP_VERSION`/`VCS_REF`, define
   health checks that need no extra packages, keep all build tooling out of the runtime stage, and exclude
   secrets, local state and generated output through a root `.dockerignore`.
+- Provider-agnostic LLM interface (`packages/llm`, ADR-0006, `docs/08-ai-agents.md`): one narrow provider
+  contract (`complete`, `complete_structured`) with the cross-cutting concerns owned by the interface — an
+  absolute per-attempt deadline, retries with jittered exponential backoff, rate-limit handling that honours
+  the provider's own `retry_after`, a documented provider fallback policy, per-run token/call/wall-clock/cost
+  ceilings enforced before each call, cost accounting from a committed price table, schema-validated
+  structured output, and a deterministic fake provider that makes every test tier reproducible without
+  calling a paid API. Unit and contract coverage lives in `tests/llm`, and the shared controllable clock and
+  delay recorder in `packages/test_fixtures/clock.py` keep the retry and budget assertions exact.
 
 ### Fixed
 
+- The LLM interface is installed where the architecture places it and its tests actually run. It was
+  committed under `services/llm`, which contradicts ADR-0006 and the repository layout in the README, its
+  test module sat outside pytest's `testpaths` so it never executed in any tier, and the module failed the
+  lint and type gates. It now lives in `packages/llm` with tests in `tests/llm`, and both the lint gate and
+  the strict type gate pass.
 - Blank optional settings no longer fail validation. A ConfigMap key or `.env` entry that is present but
   empty (`OTEL_ENDPOINT=`, `FAILURE_MODE=`) is treated as "not configured" instead of crash-looping the
   service, which is how Kubernetes configuration is supplied in practice. Blank values for required
