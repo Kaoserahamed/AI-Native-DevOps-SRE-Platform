@@ -43,7 +43,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosqlite", marker = "extra == 'dev'", specifier = "==0.20.0" },
+    { name = "aiosqlite", marker = "extra == 'dev'", specifier = "==0.22.1" },
     { name = "asyncpg", specifier = ">=0.29,<1" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", marker = "extra == 'dev'", specifier = "==0.28.1" },
@@ -63,21 +63,18 @@ requires-dist = [
     { name = "redis", specifier = ">=5.0,<6" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.16.8" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0,<3" },
-    { name = "types-jsonschema", marker = "extra == 'dev'", specifier = "==4.25.0.20250809" },
+    { name = "types-jsonschema", marker = "extra == 'dev'", specifier = "==4.26.0.20260518" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
 ]
 provides-extras = ["dev"]
 
 [[package]]
 name = "aiosqlite"
-version = "0.20.0"
+version = "0.22.1"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/3a/22ff5415bf4d296c1e92b07fd746ad42c96781f13295a074d58e77747848/aiosqlite-0.20.0.tar.gz", hash = "sha256:6d35c8c256637f4672f843c31021464090805bf925385ac39473fb16eaaca3d7", size = 21691, upload-time = "2024-02-20T06:12:53.915Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz", hash = "sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650", size = 14821, upload-time = "2025-12-23T19:25:43.997Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/c4/c93eb22025a2de6b83263dfe3d7df2e19138e345bca6f18dba7394120930/aiosqlite-0.20.0-py3-none-any.whl", hash = "sha256:36a1deaca0cac40ebe32aac9977a6e2bbc7f5189f23f4a54d5908986729e5bd6", size = 15564, upload-time = "2024-02-20T06:12:50.657Z" },
+    { url = "https://files.pythonhosted.org/packages/00/b7/e3bf5133d697a08128598c8d0abc5e16377b51465a33756de24fa7dee953/aiosqlite-0.22.1-py3-none-any.whl", hash = "sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb", size = 17405, upload-time = "2025-12-23T19:25:42.139Z" },
 ]
 
 [[package]]
@@ -1832,14 +1829,14 @@ wheels = [
 
 [[package]]
 name = "types-jsonschema"
-version = "4.25.0.20250809"
+version = "4.26.0.20260518"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/78/0b2102e988c221851f4bb98f3b008b52e52b56ef01379e10f640e033d31a/types_jsonschema-4.25.0.20250809.tar.gz", hash = "sha256:83c2a0ed5365c731a68d6e815e2063ea22ccf4547a74b1d5ed0ac234dd3de86e", size = 15423, upload-time = "2025-08-09T03:17:07.207Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/46/73b6a5d61a61015c4248030a8cb07e5bdddb4041430fae9e585a68692578/types_jsonschema-4.26.0.20260518.tar.gz", hash = "sha256:e1dd53dc97a64f5eccdd6fa9839666e09bb500a8ebba2db6fdaf1789faea81a6", size = 16638, upload-time = "2026-05-18T06:06:44.106Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/f0/6b0d5d48e9e8c8515055ed69808abea557e66cadf6d3c638a1c3cd9f908c/types_jsonschema-4.25.0.20250809-py3-none-any.whl", hash = "sha256:dcd0fee69feb0f0763555c0307f0c5d58cc0c1a55984e66a04f4ef4ae1efb507", size = 15722, upload-time = "2025-08-09T03:17:06.41Z" },
+    { url = "https://files.pythonhosted.org/packages/07/d5/134f8a147dcecda10db7f60cfc6af0578a25a5c53c87b3907a64385e0184/types_jsonschema-4.26.0.20260518-py3-none-any.whl", hash = "sha256:30b30a518c7fe335df85c919fcbcc631b69c03d4a4b5b632fa916bea03065307", size = 16072, upload-time = "2026-05-18T06:06:43.264Z" },
 ]
 
 [[package]]
