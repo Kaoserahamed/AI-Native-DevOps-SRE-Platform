@@ -52,30 +52,64 @@ The platform is built incrementally. This table tracks the phases defined in
 ## Quick start
 
 Prerequisites (exact versions and pinning locations are documented in
-[docs/03-local-development.md](docs/03-local-development.md)):
+[docs/development/setup.md](docs/development/setup.md)):
 
 - Python 3.11 or newer
 - Node.js 20.19 or newer (demo frontend and repository tooling)
 - [`uv`](https://docs.astral.sh/uv/) for reproducible Python dependency resolution
+- Docker and Docker Compose (for local infrastructure)
+
+### Local Development Setup
 
 ```bash
+# Clone the repository
 git clone https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform.git
 cd AI-Native-DevOps-SRE-Platform
+
+# Install Python dependencies
 python -m pip install uv
 uv sync --frozen --all-extras
 uv run pre-commit install
-npm ci                 # repository tooling plus every npm workspace (the demo frontend)
+
+# Install Node.js dependencies
+npm ci
+
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start local infrastructure
+docker-compose up -d
+
+# Run the demo application
+cd apps/demo-app/backend
+uvicorn app.main:app --reload --port 8000
+
+# In another terminal, run the frontend
+cd apps/demo-app/frontend
+npm run dev
 ```
 
-Every gate CI runs on a pull request is available locally through one command:
+### Verification
+
+Every gate CI runs on a pull request is available locally:
 
 ```bash
-make verify            # repository policy, format, lint, typecheck, fast tests, frontend tooling
-make test-integration  # ephemeral PostgreSQL/Redis/OTel tiers
+# Format, lint, typecheck, and unit tests
+pytest tests/unit/ -v
+ruff format . && ruff check .
+mypy services packages --strict --ignore-missing-imports
+
+# Integration tests (requires Docker)
+docker-compose up -d postgres redis
+pytest tests/integration/ -v
+
+# Build verification
+docker-compose build demo-api demo-web
 ```
 
-Windows has no `make` by default; [docs/03-local-development.md](docs/03-local-development.md) lists the
-equivalent commands, including the Node tooling fallback for clone paths that contain `&`.
+For Windows users without `make`, see [docs/development/setup.md](docs/development/setup.md) for
+detailed command equivalents.
 
 ## Repository layout
 

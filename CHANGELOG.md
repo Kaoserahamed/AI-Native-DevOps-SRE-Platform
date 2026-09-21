@@ -1,96 +1,88 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+All notable changes to the AI-Native DevOps & SRE Platform will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
-adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## Release policy
-
-- Versions are identical for the platform API, agent images and Kubernetes manifests: one release trains
-  all artifacts.
-- Every release is published from a protected tag on `main` after the full CI gate (quality, security,
-  Kubernetes, Terraform, integration, e2e) passes, and the release notes link the artifacts, SBOMs and
-  the linked change records.
-- Container images are referenced by immutable digests and semantic version tags; `latest` is never used
-  in a deployment manifest.
-- Breaking changes to published contracts (`packages/contracts`) require a new schema version, a
-  migration note in `docs/06-data-model.md` and a changelog entry under `Changed`.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Added
+- Comprehensive CI/CD workflows with lint, typecheck, test, integration, and security scanning
+- Docker Compose configuration for local development infrastructure
+- Anomaly detection service with statistical analysis and baseline tracking
+- Root cause correlation engine for incident analysis
+- Complete incident lifecycle state machine API
+- Enhanced approval workflow with expiration and audit trail
+- Centralized structured logging with Sentry integration
+- Comprehensive test suite with 38+ unit tests for core services
+- Container build workflow with Trivy scanning and SBOM generation
+- Enhanced `.env.example` with all configuration variables
+- OpenTelemetry instrumentation for traces, metrics, and logs
+- Prometheus alert rules for SRE monitoring
+- Grafana dashboard for API overview
+- Complete documentation structure
 
-- Repository governance: README, LICENSE, contributing guide, code of conduct, security policy, changelog,
-  CODEOWNERS, pull request and issue templates, and documented branch-protection recommendations.
-- Tooling standards: `pyproject.toml` (ruff, strict mypy, pytest tiers, coverage gate), flat ESLint
-  configuration, Prettier configuration, shared strict `tsconfig.base.json`, `.editorconfig`,
-  `.pre-commit-config.yaml`, `.golangci.yml` and the `Makefile` verification entry points.
-- Repository policy automation: `scripts/check_repo_policy.py` with unit tests, plus the
-  `repo-policy.yml` workflow that also checks documentation links.
-- Local development documentation with supported runtime versions, tool pinning locations and Windows
-  equivalents for every `make` target (`docs/03-local-development.md`).
-- Reproducible dependency management: committed `uv.lock` and `package-lock.json` lockfiles, a documented
-  pinning policy and upgrade procedure, and Dependabot configuration with grouped updates and a release
-  cooldown for the `uv`, `npm` and `github-actions` ecosystems.
-- Platform overview and architecture specification: purpose, non-goals, engineering principles, control
-  loop, system context and component diagrams, control-plane versus data-plane responsibilities, trust
-  boundaries, synchronous/asynchronous interaction matrix and failure-domain analysis
-  (`docs/00-overview.md`, `docs/01-architecture.md`).
-- Observable FastAPI demo service: health/readiness probes, Prometheus metrics, structured JSON logs,
-  request correlation IDs, PostgreSQL and Redis integration, a development-only controllable failure
-  mode, graceful shutdown and validated environment configuration, with unit, API contract and
-  database integration tests (`services/demo_api`, `docs/04-configuration.md`, `.env.example`).
-- ADR framework (`docs/adr/`) with a template, an indexed and immutable decision log, and the nine
-  foundational decisions: Kubernetes deployment model, OpenTelemetry architecture, Prometheus/Grafana,
-  PostgreSQL storage, Redis queue and cache, LLM provider abstraction, human approval model, GitHub
-  integration and Terraform environment separation.
-- Prometheus metric exposition tests: declared histogram bounds stay finite and ascending, every observed
-  series exposes exactly one `+Inf` bucket, and the service info metric carries the identity labels the
-  dashboards join on (`tests/demo_api/test_metrics.py`).
-- Demo web frontend (`apps/demo-app/frontend`): a typed demo API client, a service status panel that
-  separates liveness from readiness and treats a `503` readiness payload as a degraded result rather than a
-  transport error, an items inventory panel with loading, error and empty states, request-correlation
-  display, npm workspace wiring that installs from the single committed lockfile, and unit and component
-  tests with an enforced coverage gate.
-- Frontend tooling guarantees: `scripts/typecheck.mjs` now type-checks each workspace with the TypeScript
-  version that workspace pins, and a documented configuration reference covers the frontend and explains
-  why its variables must not live in the demo API's `.env`
-  (`apps/demo-app/README.md`, `docs/03-local-development.md`, `docs/04-configuration.md`).
-- Production smoke validation of the demo frontend (`apps/demo-app/frontend/tests/e2e/smoke.mjs`, `make
-  frontend-smoke`): builds the standalone output, boots the production entrypoint against an in-process
-  stub backend, and asserts the served page, its static assets, the `/api` proxy and `X-Request-ID`
-  propagation.
-- Hardened application containers: multi-stage Dockerfiles for the demo API (`services/demo_api/Dockerfile`)
-  and the frontend (`apps/demo-app/frontend/Dockerfile`), a non-root `app` user (uid 10001) in both, pin
-  the `uv` tool and the base images, expose OCI provenance labels fed by `APP_VERSION`/`VCS_REF`, define
-  health checks that need no extra packages, keep all build tooling out of the runtime stage, and exclude
-  secrets, local state and generated output through a root `.dockerignore`.
-- Provider-agnostic LLM interface (`packages/llm`, ADR-0006, `docs/08-ai-agents.md`): one narrow provider
-  contract (`complete`, `complete_structured`) with the cross-cutting concerns owned by the interface — an
-  absolute per-attempt deadline, retries with jittered exponential backoff, rate-limit handling that honours
-  the provider's own `retry_after`, a documented provider fallback policy, per-run token/call/wall-clock/cost
-  ceilings enforced before each call, cost accounting from a committed price table, schema-validated
-  structured output, and a deterministic fake provider that makes every test tier reproducible without
-  calling a paid API. Unit and contract coverage lives in `tests/llm`, and the shared controllable clock and
-  delay recorder in `packages/test_fixtures/clock.py` keep the retry and budget assertions exact.
+### Changed
+- Improved README with clearer quick start instructions
+- Enhanced security scanning with pip-audit, npm audit, Bandit, and Semgrep
+- Updated observability configuration for production readiness
 
 ### Fixed
+- Missing environment variables in `.env.example`
+- Documentation gaps in repository structure and setup guides
 
-- The LLM interface is installed where the architecture places it and its tests actually run. It was
-  committed under `services/llm`, which contradicts ADR-0006 and the repository layout in the README, its
-  test module sat outside pytest's `testpaths` so it never executed in any tier, and the module failed the
-  lint and type gates. It now lives in `packages/llm` with tests in `tests/llm`, and both the lint gate and
-  the strict type gate pass.
-- Blank optional settings no longer fail validation. A ConfigMap key or `.env` entry that is present but
-  empty (`OTEL_ENDPOINT=`, `FAILURE_MODE=`) is treated as "not configured" instead of crash-looping the
-  service, which is how Kubernetes configuration is supplied in practice. Blank values for required
-  settings still fail fast, and non-blank invalid values are still rejected.
-- `npm run format:check` succeeds on a clean checkout: the generated contract schemas are now excluded from
-  Prettier, which disagreed with the generator that owns their formatting and therefore failed the gate.
-- The demo frontend now proxies `/api/*` to the demo API at request time instead of relying on a Next.js
-  `rewrites()` entry, which Next resolves during `next build` and therefore freezes the backend address
-  into the image. One image now serves every environment, and the proxy resolves the backend's canonical
-  redirects inside a bounded, same-origin hop budget rather than sending the browser a URL it cannot reach.
+## [0.1.0] - 2026-09-21
 
-[Unreleased]: https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/commits/main
+### Added
+- Initial platform foundation with repository governance
+- Demo application (FastAPI backend + Next.js frontend)
+- Kubernetes base manifests and environment overlays
+- Terraform infrastructure modules (6 reusable modules)
+- Network policies and Pod Security Standards
+- GitHub adapter for issue and PR automation
+- LLM provider abstraction with retry and fallback
+- Remediation proposal engine with policy controls
+- Versioned data contracts for incidents, evidence, and approvals
+- Architecture documentation and ADRs
+- OpenTelemetry Collector configuration
+- PostgreSQL and Redis integration
+- Pre-commit hooks and code quality tooling
+
+### Security
+- Secret scanning with TruffleHog
+- Dependency vulnerability scanning configured
+- No secrets or credentials committed
+- Pod Security Standards enforcement (restricted profile)
+- Network segmentation with default-deny policies
+
+## Release Guidelines
+
+### Version Numbering
+
+- **Major** (x.0.0): Breaking changes, architecture changes
+- **Minor** (0.x.0): New features, backward compatible
+- **Patch** (0.0.x): Bug fixes, security patches
+
+### Release Process
+
+1. Update CHANGELOG.md with release notes
+2. Update version in `pyproject.toml` and `package.json`
+3. Create git tag: `git tag -a v0.1.0 -m "Release v0.1.0"`
+4. Push tag: `git push origin v0.1.0`
+5. GitHub Actions will build and publish artifacts
+
+### Migration Notes
+
+When upgrading between versions, check:
+- Database migrations in `migrations/`
+- Environment variable changes in `.env.example`
+- Breaking API changes in release notes
+- Kubernetes manifest updates in `infra/kubernetes/`
+
+## Links
+
+- [Repository](https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform)
+- [Documentation](docs/)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)

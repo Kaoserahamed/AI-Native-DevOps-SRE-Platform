@@ -2,16 +2,24 @@
 
 Retrieves bounded evidence from logs, metrics, traces, and Kubernetes, with time-window
 constraints and size limits to prevent unbounded telemetry ingestion.
+
+Every retrieval goes through the agent's authorized tool catalogue (Task 12.3): a retrieval adapter is a tool
+call like any other, so it is allowlisted, argument-checked and audited, and an agent that lacks the required
+permission simply receives no evidence instead of reaching the backend anyway.
 """
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import logging
 from typing import Any
 
-from packages.contracts.common import Identifier
+from packages.contracts.agents import AgentType
+from packages.contracts.common import Environment, Identifier
+from packages.governance.authorization import ToolAuthorizer, ToolRequest
+from packages.governance.identity import AGENT_VERSION
+from packages.governance.tools import AgentTool
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +51,10 @@ class EvidenceRetriever:
     def __init__(
         self,
         constraints: EvidenceConstraints | None = None,
+        authorizer: ToolAuthorizer | None = None,
+        agent_type: AgentType = AgentType.INCIDENT_AGENT,
+        agent_version: str = AGENT_VERSION,
+        environment: Environment = Environment.PRODUCTION,
     ) -> None:
         """Initialize evidence retriever.
 
@@ -50,8 +62,44 @@ class EvidenceRetriever:
         ----------
         constraints
             Optional constraints override for testing
+        authorizer
+            Tool authorizer that gates every retrieval. The default authorizer allows only the read-only tools
+            the incident agent is permitted to use, and audits nothing unless a trail is attached.
+        agent_type
+            Agent the retrieval runs as; determines the permission set that applies.
+        agent_version
+            Version recorded in the tool audit events.
+        environment
+            Environment the incident lives in. It defaults to ``production`` so an unconfigured retriever is
+            the strictest one.
         """
         self.constraints = constraints or EvidenceConstraints()
+        self.authorizer = authorizer or ToolAuthorizer()
+        self.agent_type = agent_type
+        self.agent_version = agent_version
+        self.environment = environment
+
+    def _authorize(
+        self, tool: AgentTool, arguments: dict[str, object], incident_id: Identifier
+    ) -> bool:
+        """Return whether the agent may use ``tool`` for this retrieval, auditing the decision."""
+        request = ToolRequest(
+            agent_type=self.agent_type,
+            agent_version=self.agent_version,
+            tool=tool,
+            arguments=arguments,
+            environment=self.environment,
+            incident_id=incident_id,
+        )
+        result = self.authorizer.authorize(request)
+        if not result.allowed:
+            logger.warning(
+                "Evidence retrieval refused for agent %s: tool %s (%s)",
+                self.agent_type.value,
+                tool.value,
+                result.explain(),
+            )
+        return result.allowed
 
     async def retrieve_evidence(
         self,
@@ -89,12 +137,16 @@ class EvidenceRetriever:
             end_time.isoformat(),
         )
 
-        # Retrieve from each source
-        log_evidence = await self._retrieve_logs(service, start_time, end_time)
-        metric_evidence = await self._retrieve_metrics(service, start_time, end_time)
-        trace_evidence = await self._retrieve_traces(service, start_time, end_time)
-        k8s_evidence = await self._retrieve_kubernetes_events(service, start_time, end_time)
-        deployment_evidence = await self._retrieve_deployment_history(service, start_time, end_time)
+        # Retrieve from each source, each through the authorized tool catalogue
+        log_evidence = await self._retrieve_logs(incident_id, service, start_time, end_time)
+        metric_evidence = await self._retrieve_metrics(incident_id, service, start_time, end_time)
+        trace_evidence = await self._retrieve_traces(incident_id, service, start_time, end_time)
+        k8s_evidence = await self._retrieve_kubernetes_events(
+            incident_id, service, start_time, end_time
+        )
+        deployment_evidence = await self._retrieve_deployment_history(
+            incident_id, service, start_time, end_time
+        )
 
         # Combine all evidence
         all_evidence = (
@@ -110,17 +162,26 @@ class EvidenceRetriever:
                 **ev.data,
             }
 
-        logger.info(
-            "Retrieved %d evidence items for incident %s", len(evidence_dict), incident_id
-        )
+        logger.info("Retrieved %d evidence items for incident %s", len(evidence_dict), incident_id)
 
         return evidence_dict
 
     async def _retrieve_logs(
-        self, service: str, start_time: datetime, end_time: datetime
+        self, incident_id: Identifier, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve log evidence within constraints."""
-        # Stub implementation - would query actual log backend
+        if not self._authorize(
+            AgentTool.LOG_QUERY,
+            {
+                "service": service,
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "limit": self.constraints.max_log_entries,
+            },
+            incident_id=incident_id,
+        ):
+            return []
+
         logger.debug(
             "Retrieving logs for %s from %s to %s (max %d entries)",
             service,
@@ -133,9 +194,21 @@ class EvidenceRetriever:
         return []
 
     async def _retrieve_metrics(
-        self, service: str, start_time: datetime, end_time: datetime
+        self, incident_id: Identifier, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve metric evidence within constraints."""
+        if not self._authorize(
+            AgentTool.PROMETHEUS_QUERY,
+            {
+                "query": f'{{service="{service}"}}',
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "limit": self.constraints.max_metric_points,
+            },
+            incident_id=incident_id,
+        ):
+            return []
+
         logger.debug(
             "Retrieving metrics for %s from %s to %s (max %d points)",
             service,
@@ -151,6 +224,18 @@ class EvidenceRetriever:
         self, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve trace evidence within constraints."""
+        if not self._authorize(
+            AgentTool.TRACE_QUERY,
+            {
+                "service": service,
+                "start": start_time.isoformat(),
+                "end": end_time.isoformat(),
+                "limit": self.constraints.max_trace_samples,
+            },
+            incident_id=_INCIDENT_CONTEXT,
+        ):
+            return []
+
         logger.debug(
             "Retrieving traces for %s from %s to %s (max %d samples)",
             service,
@@ -166,6 +251,13 @@ class EvidenceRetriever:
         self, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve Kubernetes event evidence."""
+        if not self._authorize(
+            AgentTool.KUBERNETES_INSPECT,
+            {"workload": service, "namespace": "demo"},
+            incident_id=_INCIDENT_CONTEXT,
+        ):
+            return []
+
         logger.debug(
             "Retrieving k8s events for %s from %s to %s",
             service,
@@ -180,6 +272,13 @@ class EvidenceRetriever:
         self, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve deployment history from GitHub or deployment system."""
+        if not self._authorize(
+            AgentTool.DEPLOYMENT_HISTORY,
+            {"service": service, "limit": 10},
+            incident_id=_INCIDENT_CONTEXT,
+        ):
+            return []
+
         logger.debug(
             "Retrieving deployment history for %s from %s to %s",
             service,

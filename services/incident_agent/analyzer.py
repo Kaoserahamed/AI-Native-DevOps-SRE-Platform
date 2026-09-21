@@ -1,17 +1,36 @@
-"""Core incident analysis logic using LLM for diagnosis."""
+"""Core incident analysis logic using LLM for diagnosis.
+
+Two Phase 12 rules are enforced here rather than left to convention:
+
+* **Prompt security (Task 12.2).** The alert description and every piece of telemetry are attacker-
+  influenceable, so they never share a message with the instructions: :func:`build_evidence_prompt` fences
+  them in the user message, neutralizes instruction-like content and bounds the payload.
+* **Agent identity (Task 12.1).** When a recorder is supplied, the run records the agent identity (type,
+  version, prompt version, provider, model), the evidence identifiers, the decision and its confidence, and
+  the outcome. A failed run is recorded as ``agent_failed`` instead of disappearing.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 import logging
 import time
-from typing import Any
+from typing import Any, Final
 
 from pydantic import BaseModel, Field
 
+from packages.contracts.agents import (
+    AgentInvocation,
+    AgentType,
+    DiagnosisCategory,
+    InvocationOutcome,
+)
 from packages.contracts.common import Confidence, Identifier, Severity
 from packages.contracts.incidents import CauseCategory, Incident, IncidentStatus, SuspectedCause
+from packages.governance.identity import AgentInvocationRecorder, AgentInvocationRun
+from packages.governance.prompts import EvidenceItem, PromptBuild, build_evidence_prompt
 from packages.llm.provider import LlmProvider
-from packages.llm.types import ChatMessage, LlmRequest, ModelConfig, Role
+from packages.llm.types import LlmRequest, ModelConfig
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +45,22 @@ class AnalysisResult(BaseModel):
     insufficient_evidence: bool = False
 
 
+#: The analyzer's output vocabulary mapped onto the versioned diagnosis vocabulary.
+DIAGNOSIS_BY_CAUSE: Final[Mapping[CauseCategory, DiagnosisCategory]] = {
+    CauseCategory.DEPLOYMENT_REGRESSION: DiagnosisCategory.DEPLOYMENT_REGRESSION,
+    CauseCategory.DEPENDENCY_FAILURE: DiagnosisCategory.DEPENDENCY_FAILURE,
+    CauseCategory.RESOURCE_EXHAUSTION: DiagnosisCategory.RESOURCE_EXHAUSTION,
+    CauseCategory.CONFIGURATION_ERROR: DiagnosisCategory.CONFIGURATION_ERROR,
+    CauseCategory.TRAFFIC_ANOMALY: DiagnosisCategory.TRAFFIC_ANOMALY,
+    CauseCategory.CODE_DEFECT: DiagnosisCategory.CODE_DEFECT,
+    CauseCategory.INFRASTRUCTURE_EVENT: DiagnosisCategory.INFRASTRUCTURE_EVENT,
+    CauseCategory.UNKNOWN: DiagnosisCategory.INSUFFICIENT_EVIDENCE,
+}
+
+#: Highest confidence an ``insufficient_evidence`` result may claim.
+MAX_INSUFFICIENT_CONFIDENCE: Final[float] = 0.5
+
+
 class IncidentAnalyzer:
     """Analyzes incidents using LLM and evidence retrieval."""
 
@@ -34,6 +69,7 @@ class IncidentAnalyzer:
         llm_provider: LlmProvider,
         system_prompt: str | None = None,
         timeout_seconds: float = 30.0,
+        recorder: AgentInvocationRecorder | None = None,
     ) -> None:
         """Initialize the incident analyzer.
 
@@ -42,13 +78,19 @@ class IncidentAnalyzer:
         llm_provider
             LLM provider for diagnosis
         system_prompt
-            Optional system prompt override for testing
+            Optional system prompt override for testing. An override changes agent behaviour, so a deployment
+            that uses one must declare a matching ``prompt_version`` through its own
+            :class:`~packages.governance.identity.AgentRegistry`.
         timeout_seconds
             Timeout for LLM calls
+        recorder
+            Optional invocation recorder. When supplied, every analysis is recorded with its identity,
+            evidence identifiers, decision, confidence and outcome.
         """
         self.llm = llm_provider
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.timeout_seconds = timeout_seconds
+        self.recorder = recorder
 
     def _default_system_prompt(self) -> str:
         """Return the default system prompt for incident analysis."""
@@ -77,6 +119,8 @@ Always cite specific evidence. If evidence is ambiguous or missing, set insuffic
         alert_description: str,
         evidence: dict[str, Any],
         severity: Severity,
+        run_id: Identifier | None = None,
+        correlation_id: Identifier | None = None,
     ) -> tuple[SuspectedCause | None, float]:
         """Analyze an incident and return a suspected cause.
 
@@ -90,30 +134,28 @@ Always cite specific evidence. If evidence is ambiguous or missing, set insuffic
             Dictionary of evidence items (logs, metrics, traces)
         severity
             Incident severity level
+        run_id
+            Control-loop run identifier recorded on the invocation; derived from the incident when omitted.
+        correlation_id
+            Correlation id shared with the rest of the control loop.
 
         Returns
         -------
         tuple[SuspectedCause | None, float]
             Suspected cause if analysis succeeded, and confidence score
         """
-        evidence_summary = self._format_evidence(evidence)
-
-        messages = [
-            ChatMessage(role=Role.SYSTEM, content=self.system_prompt),
-            ChatMessage(
-                role=Role.USER,
-                content=f"""Analyze this incident:
-
-Incident ID: {incident_id}
-Severity: {severity}
-Alert: {alert_description}
-
-Evidence:
-{evidence_summary}
-
-Provide your analysis.""",
-            ),
-        ]
+        build = self._build_prompt(
+            incident_id=incident_id,
+            alert_description=alert_description,
+            evidence=evidence,
+            severity=severity,
+        )
+        run = self._begin_run(
+            incident_id=incident_id,
+            evidence_ids=build.evidence_ids,
+            run_id=run_id,
+            correlation_id=correlation_id,
+        )
 
         try:
             # Use the first supported model
@@ -128,7 +170,7 @@ Provide your analysis.""",
 
             request = LlmRequest(
                 model_config=model_config,
-                messages=messages,
+                messages=build.messages,
             )
 
             deadline = time.monotonic() + self.timeout_seconds
@@ -139,6 +181,11 @@ Provide your analysis.""",
                     "Insufficient evidence for incident %s: %s",
                     incident_id,
                     result.reasoning,
+                )
+                self._finish(
+                    run,
+                    diagnosis=DiagnosisCategory.INSUFFICIENT_EVIDENCE,
+                    confidence=Confidence(min(result.confidence, MAX_INSUFFICIENT_CONFIDENCE)),
                 )
                 return None, 0.0
 
@@ -156,29 +203,96 @@ Provide your analysis.""",
                 result.confidence,
             )
 
+            self._finish(
+                run,
+                diagnosis=DIAGNOSIS_BY_CAUSE[result.category],
+                confidence=Confidence(result.confidence),
+            )
             return suspected_cause, result.confidence
 
         except Exception as e:
             logger.exception("Analysis failed for incident %s: %s", incident_id, e)
+            self._finish(run, outcome=InvocationOutcome.AGENT_FAILED)
             return None, 0.0
 
-    def _format_evidence(self, evidence: dict[str, Any]) -> str:
-        """Format evidence dictionary for LLM prompt."""
-        lines = []
-        for evidence_id, data in evidence.items():
-            lines.append(f"\n{evidence_id}:")
-            if isinstance(data, dict):
-                for key, value in data.items():
-                    lines.append(f"  {key}: {value}")
-            else:
-                lines.append(f"  {data}")
-        return "\n".join(lines) if lines else "No evidence available"
+    def _build_prompt(
+        self,
+        *,
+        incident_id: Identifier,
+        alert_description: str,
+        evidence: Mapping[str, Any],
+        severity: Severity,
+    ) -> PromptBuild:
+        """Return the messages for one analysis call with instructions and untrusted text kept apart."""
+        build = build_evidence_prompt(
+            instructions=self.system_prompt,
+            context=(
+                f"Incident id: {incident_id}\n"
+                f"Severity: {severity.value}\n"
+                f"Triggering alert: {alert_description}"
+            ),
+            evidence=[
+                EvidenceItem(evidence_id=evidence_id, text=self._render_item(data))
+                for evidence_id, data in evidence.items()
+            ],
+        )
+        if build.tampered:
+            logger.warning(
+                "Evidence for incident %s contained instruction-like content (%s); it was neutralized",
+                incident_id,
+                build.summary(),
+            )
+        return build
+
+    def _begin_run(
+        self,
+        *,
+        incident_id: Identifier,
+        evidence_ids: Sequence[str],
+        run_id: Identifier | None,
+        correlation_id: Identifier | None,
+    ) -> AgentInvocationRun | None:
+        """Open an invocation record, or return ``None`` when no recorder is configured."""
+        if self.recorder is None:
+            return None
+        return self.recorder.begin(
+            agent_type=AgentType.INCIDENT_AGENT,
+            run_id=run_id or f"RUN-{incident_id}",
+            incident_id=incident_id,
+            provider=self.llm.name,
+            model=self.llm.supported_models[0],
+            evidence_ids=list(evidence_ids),
+            correlation_id=correlation_id,
+        )
+
+    def _finish(
+        self,
+        run: AgentInvocationRun | None,
+        *,
+        diagnosis: DiagnosisCategory | None = None,
+        confidence: Confidence | None = None,
+        outcome: InvocationOutcome | None = None,
+    ) -> AgentInvocation | None:
+        """Close an invocation record, recording the decision when one was made."""
+        if run is None:
+            return None
+        if diagnosis is not None and confidence is not None:
+            run.record_decision(diagnosis, confidence)
+        return run.finish(outcome)
+
+    def _render_item(self, data: Any) -> str:
+        """Render one evidence payload as bounded, line-oriented text."""
+        if isinstance(data, Mapping):
+            return "\n".join(f"{key}: {value}" for key, value in data.items())
+        return str(data)
 
 
 async def analyze_incident(
     incident: Incident,
     evidence: dict[str, Any],
     llm_provider: LlmProvider,
+    recorder: AgentInvocationRecorder | None = None,
+    correlation_id: Identifier | None = None,
 ) -> Incident:
     """Analyze an incident and update it with suspected causes.
 
@@ -190,13 +304,17 @@ async def analyze_incident(
         Evidence dictionary
     llm_provider
         LLM provider for analysis
+    recorder
+        Optional invocation recorder; when supplied, the analysis is recorded with its agent identity.
+    correlation_id
+        Correlation id shared with the rest of the control loop.
 
     Returns
     -------
     Incident
         Updated incident with analysis results
     """
-    analyzer = IncidentAnalyzer(llm_provider)
+    analyzer = IncidentAnalyzer(llm_provider, recorder=recorder)
 
     alert_description = f"Alert triggered for {incident.service}: {incident.title}"
 
@@ -205,6 +323,7 @@ async def analyze_incident(
         alert_description,
         evidence,
         incident.severity,
+        correlation_id=correlation_id,
     )
 
     if suspected_cause is not None:

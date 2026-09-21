@@ -6,7 +6,9 @@ the API share:
 * :class:`~packages.contracts.alerts.Alert`
 * :class:`~packages.contracts.evidence.Evidence`
 * :class:`~packages.contracts.incidents.Incident` (with its lifecycle state machine)
-* :class:`~packages.contracts.agents.AgentDecision`
+* :class:`~packages.contracts.agents.AgentDecision` and
+  :class:`~packages.contracts.agents.AgentInvocation` (agent identity, decision, policy result, action and
+  outcome for every invocation)
 * :class:`~packages.contracts.remediation.RemediationProposal` and
   :class:`~packages.contracts.remediation.Approval`
 * :class:`~packages.contracts.audit.AuditEvent`
@@ -20,11 +22,18 @@ to a schema is a deliberate, reviewed act rather than an accident.
 from __future__ import annotations
 
 from packages.contracts.agents import (
+    ACTION_OUTCOMES,
+    AgentAction,
     AgentDecision,
+    AgentIdentity,
+    AgentInvocation,
     AgentType,
     AgentUsage,
     Citation,
     DiagnosisCategory,
+    InvocationOutcome,
+    PolicyOutcome,
+    PolicyVerdict,
 )
 from packages.contracts.alerts import Alert, AlertSource
 from packages.contracts.audit import AuditActor, AuditEvent, AuditEventType, AuditResult
@@ -77,12 +86,16 @@ from packages.contracts.versioning import (
 )
 
 __all__ = [
+    "ACTION_OUTCOMES",
     "ALLOWED_TRANSITIONS",
     "CONTRACT_MODELS",
     "SCHEMA_VERSION",
     "ActionTarget",
     "ActorType",
+    "AgentAction",
     "AgentDecision",
+    "AgentIdentity",
+    "AgentInvocation",
     "AgentType",
     "AgentUsage",
     "Alert",
@@ -108,7 +121,10 @@ __all__ = [
     "Identifier",
     "Incident",
     "IncidentStatus",
+    "InvocationOutcome",
     "PlatformModel",
+    "PolicyOutcome",
+    "PolicyVerdict",
     "PrincipalId",
     "RemediationCategory",
     "RemediationProposal",

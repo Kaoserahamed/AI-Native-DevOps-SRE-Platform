@@ -1,0 +1,367 @@
+{
+  "$defs": {
+    "AgentAction": {
+      "additionalProperties": false,
+      "description": "The action an invocation proposed, was denied, or executed.",
+      "properties": {
+        "action_hash": {
+          "description": "Canonical digest of the action; approvals and idempotency keys bind to this value.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Action Hash",
+          "type": "string"
+        },
+        "approval_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Approval that authorised an executed production change.",
+          "title": "Approval Id"
+        },
+        "category": {
+          "$ref": "#/$defs/RemediationCategory"
+        },
+        "proposal_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 3,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proposal Id"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 2,
+              "pattern": "^[a-z][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Tool that performed the action.",
+          "title": "Tool"
+        }
+      },
+      "required": [
+        "category",
+        "action_hash"
+      ],
+      "title": "AgentAction",
+      "type": "object"
+    },
+    "AgentIdentity": {
+      "additionalProperties": false,
+      "description": "Who ran, under which instructions and on which model.\n\nThe identity is the first half of the audit answer: an invocation is only meaningful if the exact\nprompt version and model that produced it are recorded alongside the result.",
+      "properties": {
+        "agent_type": {
+          "$ref": "#/$defs/AgentType"
+        },
+        "agent_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/@:+-]*$",
+          "title": "Agent Version",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 280,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/@:+-]*$",
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "provider": {
+          "maxLength": 64,
+          "minLength": 2,
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Provider",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_type",
+        "agent_version",
+        "prompt_version",
+        "provider",
+        "model"
+      ],
+      "title": "AgentIdentity",
+      "type": "object"
+    },
+    "AgentType": {
+      "description": "The agents that can run inside the worker.",
+      "enum": [
+        "anomaly_agent",
+        "incident_agent",
+        "remediation_agent",
+        "cost_agent"
+      ],
+      "title": "AgentType",
+      "type": "string"
+    },
+    "DiagnosisCategory": {
+      "description": "Diagnosis outcomes, including the honest \"we do not know\" outcome.",
+      "enum": [
+        "deployment_regression",
+        "dependency_failure",
+        "resource_exhaustion",
+        "configuration_error",
+        "traffic_anomaly",
+        "code_defect",
+        "infrastructure_event",
+        "telemetry_gap",
+        "insufficient_evidence",
+        "no_action_required"
+      ],
+      "title": "DiagnosisCategory",
+      "type": "string"
+    },
+    "InvocationOutcome": {
+      "description": "How one agent invocation ended.",
+      "enum": [
+        "no_action",
+        "insufficient_evidence",
+        "diagnosis_produced",
+        "awaiting_approval",
+        "action_succeeded",
+        "action_failed",
+        "denied_by_policy",
+        "agent_failed"
+      ],
+      "title": "InvocationOutcome",
+      "type": "string"
+    },
+    "PolicyOutcome": {
+      "description": "Result of the policy evaluation that gated an agent action.",
+      "enum": [
+        "allow",
+        "require_approval",
+        "deny",
+        "not_evaluated"
+      ],
+      "title": "PolicyOutcome",
+      "type": "string"
+    },
+    "PolicyVerdict": {
+      "additionalProperties": false,
+      "description": "The recorded policy result attached to an agent invocation.\n\n``not_evaluated`` is explicit rather than absent: a read-only agent still records that no policy\ndecision was required, which is what makes \"no action happened without a policy check\" auditable.",
+      "properties": {
+        "evaluated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evaluated At"
+        },
+        "outcome": {
+          "$ref": "#/$defs/PolicyOutcome",
+          "default": "not_evaluated"
+        },
+        "required_approvals": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Required Approvals",
+          "type": "integer"
+        },
+        "violations": {
+          "items": {
+            "maxLength": 280,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Violations",
+          "type": "array"
+        }
+      },
+      "title": "PolicyVerdict",
+      "type": "object"
+    },
+    "RemediationCategory": {
+      "description": "The only action classes the platform may ever propose.",
+      "enum": [
+        "restart_or_rollout",
+        "rollback",
+        "configuration_change",
+        "resource_adjustment",
+        "code_fix",
+        "alert_tuning",
+        "cost_optimization"
+      ],
+      "title": "RemediationCategory",
+      "type": "string"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/agent_invocation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One recorded agent invocation: identity, inputs, decision, policy result, action and outcome.",
+  "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentAction"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correlation Id"
+    },
+    "decision_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decision Id"
+    },
+    "diagnosis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiagnosisCategory"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_ids": {
+      "description": "Identifiers of the evidence that was provided to the agent.",
+      "items": {
+        "maxLength": 128,
+        "minLength": 3,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "identity": {
+      "$ref": "#/$defs/AgentIdentity"
+    },
+    "incident_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "invocation_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Invocation Id",
+      "type": "string"
+    },
+    "outcome": {
+      "$ref": "#/$defs/InvocationOutcome"
+    },
+    "policy_result": {
+      "$ref": "#/$defs/PolicyVerdict"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "default": "v1",
+      "description": "Contract schema version. A breaking change requires a new version, never an edit.",
+      "pattern": "^v[0-9]+$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "invocation_id",
+    "run_id",
+    "incident_id",
+    "identity",
+    "started_at",
+    "completed_at",
+    "outcome"
+  ],
+  "title": "AgentInvocation",
+  "type": "object"
+}

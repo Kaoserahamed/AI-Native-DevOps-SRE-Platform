@@ -115,6 +115,7 @@
         "configuration_error",
         "traffic_anomaly",
         "code_defect",
+        "infrastructure_event",
         "telemetry_gap",
         "insufficient_evidence",
         "no_action_required"

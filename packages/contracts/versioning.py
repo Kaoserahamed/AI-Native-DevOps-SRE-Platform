@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
-from packages.contracts.agents import AgentDecision
+from packages.contracts.agents import AgentDecision, AgentInvocation
 from packages.contracts.alerts import Alert
 from packages.contracts.audit import AuditEvent
 from packages.contracts.common import SCHEMA_VERSION, PlatformModel
@@ -31,6 +31,7 @@ SNAPSHOT_DIRECTORY: Final[tuple[str, ...]] = ("packages", "contracts", "schemas"
 
 CONTRACT_MODELS: Final[Mapping[str, type[PlatformModel]]] = {
     "agent_decision": AgentDecision,
+    "agent_invocation": AgentInvocation,
     "alert": Alert,
     "api_error": ApiError,
     "approval": Approval,
