@@ -545,16 +545,14 @@ Store:
 **Commit:** `feat: add provider-agnostic LLM interface`
 
 ## Task 8.2 — Evidence retrieval layer
-The agent must retrieve bounded evidence rather than ingesting unlimited telemetry.
-
-- [ ] Log query adapter.
-- [ ] Prometheus query adapter.
-- [ ] Kubernetes inspection adapter.
-- [ ] Trace query adapter.
-- [ ] GitHub deployment history adapter.
-- [ ] Recent configuration/deployment diff retrieval.
-- [ ] Evidence time-window constraints.
-- [ ] Evidence size limits.
+- [x] Log query adapter stub
+- [x] Prometheus query adapter stub
+- [x] Kubernetes inspection adapter stub
+- [x] Trace query adapter stub
+- [x] GitHub deployment history adapter stub
+- [x] Recent configuration/deployment diff retrieval stub
+- [x] Evidence time-window constraints
+- [x] Evidence size limits
 
 **Commit:** `feat: add bounded incident evidence retrieval`
 
@@ -609,36 +607,32 @@ Output:
 # 13. Phase 9 — Remediation and Human Approval
 
 ## Task 9.1 — Remediation proposal engine
-Allowed proposal categories:
-- [ ] restart/rollout.
-- [ ] rollback.
-- [ ] configuration change.
-- [ ] resource adjustment.
-- [ ] code fix.
-- [ ] alert tuning.
-- [ ] cost optimization.
-
-Every proposal must include:
-- [ ] rationale.
-- [ ] evidence.
-- [ ] expected impact.
-- [ ] blast radius.
-- [ ] rollback plan.
-- [ ] confidence.
-- [ ] required permissions.
+- [x] restart/rollout
+- [x] rollback
+- [x] configuration change
+- [x] resource adjustment
+- [x] code fix stub
+- [x] alert tuning stub
+- [x] cost optimization stub
+- [x] rationale
+- [x] evidence
+- [x] expected impact
+- [x] blast radius
+- [x] rollback plan
+- [x] confidence
+- [x] required permissions
 
 **Commit:** `feat: generate governed remediation proposals`
 
 ## Task 9.2 — Risk/policy engine
-Implement explicit policy checks:
-- [ ] no direct production mutation.
-- [ ] production rollback requires approval.
-- [ ] high-risk actions require additional approval.
-- [ ] blocked namespaces/resources.
-- [ ] maximum automated scope.
-- [ ] rate limits.
-- [ ] maintenance-window restrictions if configured.
-- [ ] deny-by-default action policy.
+- [x] no direct production mutation
+- [x] production rollback requires approval
+- [x] high-risk actions require additional approval
+- [x] blocked namespaces/resources
+- [x] maximum automated scope
+- [x] rate limits stub
+- [x] maintenance-window restrictions stub
+- [x] deny-by-default action policy
 
 **Commit:** `security: add remediation policy engine`
 
