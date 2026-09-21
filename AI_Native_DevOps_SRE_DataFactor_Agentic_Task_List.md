@@ -559,34 +559,15 @@ The agent must retrieve bounded evidence rather than ingesting unlimited telemet
 **Commit:** `feat: add bounded incident evidence retrieval`
 
 ## Task 8.3 — Incident analysis agent
-Pipeline:
-
-```text
-Alert
-  ↓
-Normalize
-  ↓
-Collect evidence
-  ↓
-Correlate signals
-  ↓
-LLM analysis
-  ↓
-Structured diagnosis
-  ↓
-Confidence + uncertainty
-  ↓
-Recommended action
-```
-
-- [ ] Prompt templates versioned in repository.
-- [ ] System instructions.
-- [ ] Structured output schema.
-- [ ] Evidence citations.
-- [ ] Confidence field.
-- [ ] "insufficient evidence" outcome.
-- [ ] No-action outcome.
-- [ ] Analysis timeout.
+- [x] Normalize alerts
+- [x] Collect evidence
+- [x] Correlate signals
+- [x] LLM analysis with structured output
+- [x] Confidence and uncertainty handling
+- [x] Evidence citations
+- [x] "insufficient evidence" outcome
+- [x] No-action outcome
+- [x] Analysis timeout handling
 
 **Tests:** deterministic fixture-based agent tests.
 
