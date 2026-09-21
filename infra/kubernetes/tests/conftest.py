@@ -70,8 +70,10 @@ class Manifest:
 
 def load_documents(path: Path) -> list[Manifest]:
     """Load every YAML document in one manifest file."""
-    documents = [document for document in yaml.safe_load_all(path.read_text(encoding="utf-8"))]
-    return [Manifest(path=path, document=document) for document in documents if document is not None]
+    documents = list(yaml.safe_load_all(path.read_text(encoding="utf-8")))
+    return [
+        Manifest(path=path, document=document) for document in documents if document is not None
+    ]
 
 
 def load_directory(directory: Path) -> list[Manifest]:

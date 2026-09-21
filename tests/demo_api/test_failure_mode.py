@@ -1,4 +1,10 @@
-"""Tests for the failure-mode (chaos) endpoint behaviours."""
+"""Tests for the controllable failure mode that the incident scenario injects.
+
+The demo API ships one intentional fault behind a development-only flag so that the platform's detection and
+diagnosis paths can be exercised deterministically. Asserting its behaviour is an ordinary unit concern: the
+test drives the real application stack over an in-memory database and an in-process Redis double, with no
+external service and no waiting.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +23,7 @@ from services.demo_api.db.models import Base
 from services.demo_api.db.session import set_session_factory
 from services.demo_api.redis_client import set_redis_client
 
-pytestmark = pytest.mark.chaos
+pytestmark = pytest.mark.unit
 
 
 @pytest_asyncio.fixture

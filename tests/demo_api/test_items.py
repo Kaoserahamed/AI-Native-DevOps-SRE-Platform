@@ -1,11 +1,16 @@
-"""Integration tests for the items CRUD endpoints."""
+"""Contract tests for the items CRUD endpoints.
+
+The app is served through ``httpx.ASGITransport`` against an in-memory SQLite database and an in-process Redis
+double, so this tier stays fast and hermetic. The same handlers are exercised against real PostgreSQL and Redis
+in the integration tier, which is why the connection string here is deliberately a file-less SQLite URL.
+"""
 
 from __future__ import annotations
 
 from httpx import AsyncClient
 import pytest
 
-pytestmark = pytest.mark.integration
+pytestmark = pytest.mark.contract
 
 
 async def test_list_items(async_client: AsyncClient) -> None:

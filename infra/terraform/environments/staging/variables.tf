@@ -1,4 +1,4 @@
-﻿# Staging environment Terraform variables.
+# Staging environment Terraform variables.
 
 variable \"environment\" {
   description = \"The deployment environment.\"

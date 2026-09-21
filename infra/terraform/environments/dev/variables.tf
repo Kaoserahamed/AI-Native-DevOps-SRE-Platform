@@ -1,4 +1,4 @@
-﻿# Dev environment Terraform variables.
+# Dev environment Terraform variables.
 
 variable \"environment\" {
   description = \"The deployment environment.\"

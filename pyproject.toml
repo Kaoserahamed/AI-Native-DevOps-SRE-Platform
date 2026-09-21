@@ -69,6 +69,8 @@ dev = [
   "pytest-cov==7.1.0",
   "aiosqlite==0.20.0",
   "ruff==0.16.8",
+  "pyyaml==6.0.3",
+  "types-pyyaml==6.0.12.20260906",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -136,8 +138,10 @@ docstring-code-format = true
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
+# The file list grows with the repository: `infra` holds the manifest and Terraform validation tests, which are
+# typed because they are the tests that decide whether a manifest or a plan is acceptable.
 explicit_package_bases = true
-files = ["packages", "scripts", "services", "tests"]
+files = ["infra", "packages", "scripts", "services", "tests"]
 strict = true
 warn_unreachable = true
 warn_unused_configs = true
@@ -153,12 +157,19 @@ exclude = '(^|/)(\.venv|node_modules|\.next)/'
 
 [tool.pytest.ini_options]
 minversion = "9.0"
-testpaths = ["tests"]
+# Every tier that can run without a cluster or a live service is collected by a bare `pytest`, including the
+# Kubernetes manifest and Terraform configuration tests that live next to the infrastructure they describe.
+testpaths = ["tests", "infra/kubernetes/tests", "infra/terraform/tests"]
 pythonpath = ["."]
 addopts = [
   "--strict-markers",
   "--strict-config",
   "-ra",
+  # Coverage is measured, not merely configured: a documented threshold that no run enforces is worse than
+  # no threshold at all. The measured packages are the ones the coverage configuration names.
+  "--cov=packages",
+  "--cov=scripts",
+  "--cov=services",
   "--cov-report=term-missing",
   "--cov-report=xml:coverage.xml",
 ]

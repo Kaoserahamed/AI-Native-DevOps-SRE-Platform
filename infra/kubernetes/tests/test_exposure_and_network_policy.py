@@ -8,9 +8,8 @@ managed services — so it cannot quietly grow into "any port, any host".
 
 from __future__ import annotations
 
-import pytest
-
 from infra.kubernetes.tests.conftest import DATA_STORE_PORTS, Manifest, by_kind
+import pytest
 
 pytestmark = pytest.mark.unit
 
@@ -33,7 +32,9 @@ def test_the_ingress_publishes_only_the_frontend(base_manifests: list[Manifest])
 
     assert len(ingress) == 1, "expected exactly one Ingress"
     spec = ingress[0].document["spec"]
-    assert spec.get("ingressClassName"), "no ingress class is selected, so any controller may serve it"
+    assert spec.get("ingressClassName"), (
+        "no ingress class is selected, so any controller may serve it"
+    )
     backends = [
         path["backend"]["service"]["name"]
         for rule in spec["rules"]
@@ -87,7 +88,9 @@ def test_every_pod_gets_dns_and_nothing_more_by_default(base_manifests: list[Man
     dns = next(policy for policy in policies if policy.name == "allow-dns-egress")
 
     assert dns.document["spec"]["podSelector"] == {}
-    ports = {(port["protocol"], port["port"]) for port in dns.document["spec"]["egress"][0]["ports"]}
+    ports = {
+        (port["protocol"], port["port"]) for port in dns.document["spec"]["egress"][0]["ports"]
+    }
     assert ports == {("UDP", 53), ("TCP", 53)}
 
 

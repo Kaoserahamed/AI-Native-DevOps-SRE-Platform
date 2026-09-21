@@ -11,15 +11,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-import yaml
-
 from infra.kubernetes.tests.conftest import (
     BASE_DIR,
     NAMESPACE,
     STANDARD_LABELS,
     Manifest,
 )
+import pytest
+import yaml
 
 pytestmark = pytest.mark.unit
 
@@ -63,7 +62,7 @@ def test_base_kustomization_lists_every_manifest_file() -> None:
 
     for entry in resources:
         path = Path(entry)
-        if path.suffix == ".yaml" and path.name == "kustomization.yaml" and path.parent != Path("."):
+        if path.suffix == ".yaml" and path.name == "kustomization.yaml" and path.parent != Path():
             # This is a reference to a subdirectory's kustomization file
             subdirectory_kustomizations.add(path.parent)
         else:
@@ -71,9 +70,7 @@ def test_base_kustomization_lists_every_manifest_file() -> None:
 
     # Check top-level .yaml files (excluding kustomization.yaml itself)
     top_level_files = {
-        path.name
-        for path in BASE_DIR.glob("*.yaml")
-        if path.name != "kustomization.yaml"
+        path.name for path in BASE_DIR.glob("*.yaml") if path.name != "kustomization.yaml"
     }
     assert top_level_files - top_level_names == set(), (
         f"top-level manifest files not referenced by kustomization.yaml: "
@@ -92,16 +89,10 @@ def test_base_kustomization_lists_every_manifest_file() -> None:
         assert subdir_kustomization_file.exists(), (
             f"subdirectory {subdir} has no kustomization.yaml"
         )
-        subdir_kustomization = yaml.safe_load(
-            subdir_kustomization_file.read_text(encoding="utf-8")
-        )
-        subdir_resources = {
-            Path(entry).name for entry in subdir_kustomization["resources"]
-        }
+        subdir_kustomization = yaml.safe_load(subdir_kustomization_file.read_text(encoding="utf-8"))
+        subdir_resources = {Path(entry).name for entry in subdir_kustomization["resources"]}
         subdir_files = {
-            path.name
-            for path in subdir_path.glob("*.yaml")
-            if path.name != "kustomization.yaml"
+            path.name for path in subdir_path.glob("*.yaml") if path.name != "kustomization.yaml"
         }
         assert subdir_files - subdir_resources == set(), (
             f"files in {subdir}/ not referenced by its kustomization.yaml: "
