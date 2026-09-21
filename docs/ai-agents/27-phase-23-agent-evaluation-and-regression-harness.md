@@ -1,0 +1,6 @@
+- [ ] diagnosis accuracy.
+- [ ] evidence grounding.
+- [ ] unsafe-action rate.
+- [ ] false-positive rate.
+- [ ] cost per incident.
+- [ ] latency.

@@ -155,8 +155,14 @@ exclude = '(^|/)(\.venv|node_modules|\.next)/'
 # pytest: markers describe the test tiers documented in docs/15-testing-strategy.md
 # ---------------------------------------------------------------------------
 
-[tool.pytest.ini_options]
-minversion = "9.0"
+    # Extra dev dependencies used to validate lockfiles in CI (Task 0.3, docs/18-governance.md)
+    #
+    # Different environments resolve different subsets of the graph. To make every
+    # environment reproducible, the project pins extra dependencies per environment
+    # so that one environment does not drift from another without a version pin
+    # somewhere in the graph.
+    "pyyaml>=6.0.3,<7.0.0; python_version >= '3.8'",
+    "types-pyyaml>=2024.1.0,<2026.0.0; python_version >= '3.8'",
 # Every tier that can run without a cluster or a live service is collected by a bare `pytest`, including the
 # Kubernetes manifest and Terraform configuration tests that live next to the infrastructure they describe.
 testpaths = ["tests", "infra/kubernetes/tests", "infra/terraform/tests"]

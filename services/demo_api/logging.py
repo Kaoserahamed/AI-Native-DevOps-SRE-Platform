@@ -15,14 +15,24 @@ from pythonjsonlogger import json
 
 
 class CorrelationFilter(logging.Filter):
-    """Attach the current request correlation ID to every log record."""
+    """Attach request correlation and OTel trace IDs to every log record."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Inject the correlation ID from a contextvar if present."""
+        """Inject the correlation ID and the current trace/span IDs."""
         from services.demo_api.middleware.correlation import get_correlation_id
+
+        from opentelemetry import trace
 
         correlation_id = get_correlation_id()
         record.correlation_id = correlation_id or "none"
+        span = trace.get_current_span()
+        context = span.get_span_context() if span is not None else None
+        if context is not None and context.trace_id != 0:
+            record.trace_id = format(context.trace_id, "032x")
+            record.span_id = format(context.span_id, "016x")
+        else:
+            record.trace_id = "none"
+            record.span_id = "none"
         return True
 
 

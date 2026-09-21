@@ -157,6 +157,8 @@ def check_markdown_links(root: Path) -> list[str]:
     # `node_modules` (and the Python virtual environment) are dependency trees, and `.tools` holds
     # checksum-verified tool binaries fetched by the validation scripts, which ship their own README.
     skip_dirs = {".git", ".venv", ".tools", "node_modules"}
+        "No forbidden files present": check_forbidden_files
+    }
     violations: list[str] = []
     for document in sorted(root.rglob("*.md")):
         if any(part in skip_dirs for part in document.parts):

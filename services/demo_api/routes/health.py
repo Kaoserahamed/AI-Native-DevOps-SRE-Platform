@@ -14,6 +14,10 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
 from services.demo_api.db.session import get_session_factory
+from services.demo_api.observability.instrumentation import (
+    timed_db_operation,
+    timed_redis_operation,
+)
 from services.demo_api.redis_client import get_redis_client
 
 router = APIRouter(tags=["health"])
@@ -37,8 +41,9 @@ async def _check_readiness() -> dict[str, Any]:
     # Database check
     try:
         factory = get_session_factory()
-        async with factory() as session:
-            await session.execute(text("SELECT 1"))
+        async with timed_db_operation("health"):
+            async with factory() as session:
+                await session.execute(text("SELECT 1"))
         checks["database"] = True
     except Exception:
         checks["database"] = False
@@ -46,7 +51,8 @@ async def _check_readiness() -> dict[str, Any]:
     # Redis check
     try:
         client = get_redis_client()
-        await client.ping()
+        async with timed_redis_operation("ping"):
+            await client.ping()
         checks["redis"] = True
     except Exception:
         checks["redis"] = False

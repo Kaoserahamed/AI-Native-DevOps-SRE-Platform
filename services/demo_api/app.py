@@ -19,6 +19,7 @@ from services.demo_api.db.models import Base, create_engine, create_session_fact
 from services.demo_api.db.session import set_session_factory
 from services.demo_api.logging import configure_logging
 from services.demo_api.middleware.correlation import CorrelationIdMiddleware
+from services.demo_api.middleware.observability import ObservabilityMiddleware
 from services.demo_api.observability.metrics import setup_metrics
 from services.demo_api.observability.tracing import init_tracing, shutdown_tracing
 from services.demo_api.redis_client import set_redis_client
@@ -104,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
     )
     app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(ObservabilityMiddleware)
 
     # Routes
     app.include_router(health_router)

@@ -27,9 +27,12 @@ def get_redis_client() -> Any:
 
 async def check_redis_health() -> bool:
     """Return ``True`` when Redis responds to a PING."""
+    from services.demo_api.observability.instrumentation import timed_redis_operation
+
     try:
         client = get_redis_client()
-        pong = await client.ping()
+        async with timed_redis_operation("ping"):
+            pong = await client.ping()
         return bool(pong)
     except Exception as exc:
         logger.error("Redis health check failed: %s", exc)
@@ -38,10 +41,12 @@ async def check_redis_health() -> bool:
 
 async def get_cache(key: str) -> str | None:
     """Fetch a cached value by key, recording a hit/miss metric."""
+    from services.demo_api.observability.instrumentation import timed_redis_operation
     from services.demo_api.observability.metrics import redis_hits_total, redis_misses_total
 
     client = get_redis_client()
-    value = await client.get(key)
+    async with timed_redis_operation("get"):
+        value = await client.get(key)
     if value is not None:
         redis_hits_total.inc()
         return value.decode("utf-8") if isinstance(value, bytes) else value
@@ -51,5 +56,8 @@ async def get_cache(key: str) -> str | None:
 
 async def set_cache(key: str, value: str, ttl: int = 300) -> None:
     """Cache a value with an optional TTL (in seconds)."""
+    from services.demo_api.observability.instrumentation import timed_redis_operation
+
     client = get_redis_client()
-    await client.setex(key, ttl, value)
+    async with timed_redis_operation("set"):
+        await client.setex(key, ttl, value)

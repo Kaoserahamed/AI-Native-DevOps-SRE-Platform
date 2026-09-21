@@ -20,9 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.demo_api.db.models import Item
 from services.demo_api.db.session import get_session
+from services.demo_api.observability.instrumentation import timed_db_operation
 from services.demo_api.observability.metrics import (
     failures_injected_total,
-    http_requests_total,
     items_created_total,
     items_deleted_total,
 )
@@ -86,9 +86,6 @@ async def list_items(
 ) -> list[ItemOut]:
     """List all items, with results cached in Redis for 60 seconds."""
     if maybe_inject_failure(request):
-        http_requests_total.labels(
-            method="GET", endpoint="/items/", status_code=status.HTTP_503_SERVICE_UNAVAILABLE
-        ).inc()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="failure_mode=error_rate: service temporarily unavailable",
@@ -101,15 +98,13 @@ async def list_items(
         raw: list[dict[str, Any]] = json.loads(cached)
         return [ItemOut.model_validate(item) for item in raw]
 
-    result = await session.execute(select(Item))
-    items = result.scalars().all()
+    async with timed_db_operation("select"):
+        result = await session.execute(select(Item))
+    items = list(result.scalars().all())
     logger.info("Retrieved %d items from database", len(items))
 
     serialized = [_serialize_item(item) for item in items]
     await set_cache(cache_key, json.dumps([item.model_dump(mode="json") for item in serialized]))
-    http_requests_total.labels(
-        method="GET", endpoint="/items/", status_code=status.HTTP_200_OK
-    ).inc()
     return serialized
 
 
@@ -121,23 +116,18 @@ async def create_item(
 ) -> ItemOut:
     """Create a new item."""
     if maybe_inject_failure(request):
-        http_requests_total.labels(
-            method="POST", endpoint="/items/", status_code=status.HTTP_503_SERVICE_UNAVAILABLE
-        ).inc()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="failure_mode=error_rate: service temporarily unavailable",
         )
 
     item = Item(name=payload.name, description=payload.description, is_active=payload.is_active)
-    session.add(item)
-    await session.commit()
-    await session.refresh(item)
+    async with timed_db_operation("insert"):
+        session.add(item)
+        await session.commit()
+        await session.refresh(item)
     items_created_total.inc()
     logger.info("Created item id=%s name=%s", item.id, item.name)
-    http_requests_total.labels(
-        method="POST", endpoint="/items/", status_code=status.HTTP_201_CREATED
-    ).inc()
     return _serialize_item(item)
 
 
@@ -149,31 +139,17 @@ async def get_item(
 ) -> ItemOut:
     """Retrieve a single item by ID."""
     if maybe_inject_failure(request):
-        http_requests_total.labels(
-            method="GET",
-            endpoint=f"/items/{item_id}",
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        ).inc()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="failure_mode=error_rate: service temporarily unavailable",
         )
 
-    result = await session.execute(select(Item).where(Item.id == item_id))
+    async with timed_db_operation("select"):
+        result = await session.execute(select(Item).where(Item.id == item_id))
     item = result.scalar_one_or_none()
     if item is None:
-        http_requests_total.labels(
-            method="GET",
-            endpoint=f"/items/{item_id}",
-            status_code=status.HTTP_404_NOT_FOUND,
-        ).inc()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 
-    http_requests_total.labels(
-        method="GET",
-        endpoint=f"/items/{item_id}",
-        status_code=status.HTTP_200_OK,
-    ).inc()
     return _serialize_item(item)
 
 
@@ -185,31 +161,18 @@ async def delete_item(
 ) -> None:
     """Delete an item by ID."""
     if maybe_inject_failure(request):
-        http_requests_total.labels(
-            method="DELETE",
-            endpoint=f"/items/{item_id}",
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        ).inc()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="failure_mode=error_rate: service temporarily unavailable",
         )
 
-    raw_result = await session.execute(delete(Item).where(Item.id == item_id))
+    async with timed_db_operation("delete"):
+        raw_result = await session.execute(delete(Item).where(Item.id == item_id))
     deleted: int = getattr(raw_result, "rowcount", 0) or 0
     if deleted == 0:
-        http_requests_total.labels(
-            method="DELETE",
-            endpoint=f"/items/{item_id}",
-            status_code=status.HTTP_404_NOT_FOUND,
-        ).inc()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 
-    await session.commit()
+    async with timed_db_operation("delete"):
+        await session.commit()
     items_deleted_total.inc()
     logger.info("Deleted item id=%s", item_id)
-    http_requests_total.labels(
-        method="DELETE",
-        endpoint=f"/items/{item_id}",
-        status_code=status.HTTP_204_NO_CONTENT,
-    ).inc()

@@ -3,19 +3,36 @@
 Tracing is initialised once at startup and shut down gracefully via the
 application lifespan. When the OTLP endpoint is not configured, no-op tracing
 is used so the service runs standalone for local development.
+
+Resource attributes (``service.name``, ``service.version``,
+``deployment.environment``) are consistent across every service by
+convention (see ``docs/07-observability.md``): the middleware, the database
+helpers and the Redis helpers below all reuse the tracer names declared
+here, and propagation uses W3C ``traceparent`` over HTTP plus an explicit
+carrier for queue jobs (documented in the collector README).
 """
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 import logging
+from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 logger = logging.getLogger("demo-api.tracing")
+
+RESOURCE_ATTRIBUTES: tuple[str, ...] = (
+    "service.name",
+    "service.version",
+    "deployment.environment",
+)
 
 
 def init_tracing(
@@ -69,3 +86,50 @@ def shutdown_tracing(provider: TracerProvider | None) -> None:
     finally:
         provider.shutdown()
     logger.info("Tracing shut down")
+
+
+def get_tracer(name: str = "demo-api") -> trace.Tracer:
+    """Return a tracer bound to the global provider (no-op when disabled)."""
+    return trace.get_tracer(name)
+
+
+@asynccontextmanager
+async def database_span(operation: str, **attributes: Any) -> AsyncIterator[trace.Span]:
+    """Create a CLIENT span for a database operation.
+
+    Wraps one logical query (``select``, ``insert``, ``delete``, health
+    check) so database time is visible inside the parent HTTP span.
+    """
+    tracer = get_tracer("demo-api.database")
+    with tracer.start_as_current_span(
+        f"db.{operation}", kind=SpanKind.CLIENT
+    ) as span:
+        span.set_attribute("db.system", "postgresql")
+        span.set_attribute("db.operation", operation)
+        for key, value in attributes.items():
+            span.set_attribute(key, value)
+        try:
+            yield span
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+
+
+@asynccontextmanager
+async def redis_span(operation: str, **attributes: Any) -> AsyncIterator[trace.Span]:
+    """Create a CLIENT span for a Redis operation (``get``, ``set``, ...)."""
+    tracer = get_tracer("demo-api.redis")
+    with tracer.start_as_current_span(
+        f"redis.{operation}", kind=SpanKind.CLIENT
+    ) as span:
+        span.set_attribute("db.system", "redis")
+        span.set_attribute("db.operation", operation)
+        for key, value in attributes.items():
+            span.set_attribute(key, value)
+        try:
+            yield span
+        except Exception as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise

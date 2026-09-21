@@ -40,11 +40,14 @@ The platform is built incrementally. This table tracks the phases defined in
 | 1 | Architecture, ADRs, versioned contracts | Implemented |
 | 2 (Tasks 2.1-2.2) | Demo production application: FastAPI service, Next.js frontend | Implemented |
 | 2 (Task 2.3) | Hardened application containers | Implemented |
-| 3-4 | Kubernetes platform, Terraform infrastructure | Planned |
-| 5-7 | OpenTelemetry, Prometheus/Grafana, SLO/incident model | Planned |
-| 8-12 | AI agent runtime, remediation, governance/audit | Planned |
-| 13-19 | Database, queue/worker, testing tiers, CI/CD, runbooks, DR | Planned |
-| 20-26 | Documentation, threat model, performance, evaluation, e2e demo | Planned |
+| 3 | Kubernetes platform (base, dev/staging/prod overlays, hardening, manifest tests) | Implemented |
+| 4 | Terraform infrastructure (reusable modules, environments, committed lockfile, config tests) | Implemented |
+| 5-6 | OpenTelemetry SDK + collector, Prometheus scrape config, alert rules, starter dashboard | Partial — app metrics/tracing, collector, `prometheus.yml`, `alert-rules.yml`, `demo-api-overview.json` exist; `observability/grafana/` empty, no K8s-health/SLO/agent/cost dashboards |
+| 7 | SLO definitions, incident persistence model, incident lifecycle API | Not implemented — contracts + state-machine validation only (`packages/contracts/incidents.py`); no SLO docs, no incident store/API service |
+| 8 (Task 8.1) | Provider-agnostic LLM interface (budget/retry/fallback/structured output + tests) | Implemented (`packages/llm/`, `tests/llm/`) |
+| 8-10 (Tasks 8.2-10.3) | Evidence retrieval, analysis/anomaly agents, remediation + approval runtime, GitHub automation, worker | Not implemented — `services/` has only `demo_api`; `packages/github_client`, `kubernetes_client`, `observability`, `policy` are empty `app/`+`tests/` scaffolds |
+| 11-19 | Migrations, queue/worker, integration/e2e/chaos tiers, CI/CD gates, runbooks, DR | Partial — demo-app Postgres/Redis integration exists; `migrations/`, `compose*.yaml`, full CI workflows (only `repo-policy.yml` exists), `tests/integration|e2e|chaos` contents, `docs/20-runbooks/` contents missing |
+| 20-26 | Remaining docs, threat model, performance, agent evaluation, e2e demo | Partial — `docs/00,01,03,04,08,18` + 10 ADRs exist; `docs/05-07,09-17,19`, threat model, and e2e demo missing |
 
 ## Quick start
 
