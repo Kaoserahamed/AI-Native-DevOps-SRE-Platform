@@ -1,0 +1,312 @@
+
+DataFactor
+Products
+Research
+Team
+Careers
+Request a dataset
+License your data
+Free quality assessment
+Your code could be worth more than you think.
+Submit your repositories for a free quality assessment. We’ll evaluate their technical quality, complexity, history, documentation, and potential value for AI development.
+
+If your code meets our licensing criteria, DataFactor may offer you a licensing agreement, turning dormant code into a new revenue stream.
+
+Any figure shown here or produced by the assessment is an approximate, non-binding estimate, not an offer.
+
+Score another repo
+61
+C
+Overall
+github.com/Kaoserahamed/AItest2
+AItest2
+Backend
+37%
+Infra
+60%
+monorepo · +2 bonus
+Source LOC
+8,339
+Volume
+27.2
+Mining rank
+4· very high
+Task capacity
+~6
+Task capacity estimates how much of this repository’s history could be mined into self-contained engineering tasks: changes that arrive with the tests that prove them. It is one of the inputs to the payout estimate below.
+
+AItest2 (AI-Native DevOps/SRE Platform) is an ambitious monorepo mixing a FastAPI demo service, Next.js frontend, Terraform/Kubernetes infra, and an LLM abstraction layer, with genuinely careful engineering in the parts that are implemented (typed code, structured errors, real contract tests, prometheus metrics, policy-enforcing scripts). However the README's own status table admits most of the platform (agents, incident lifecycle, worker, GitHub automation, most docs, CI beyond a repo-policy check) is unimplemented or partial, CI does not run lint/tests/typecheck, there is no Dockerfile/compose despite infra ambition, and git history is a single-day, single-author burst of 27 commits, so the actively-maintained and CI-maturity signals are weak relative to the scope. Classification is ambiguous (infra primary_class vs backend suggestion); given the actual LOC (mostly Python/TS app code, only IaC files present but not exercised in CI) I scored both backend and infra as requested.
+judged by claude-sonnet-5
+
+Buyer fit · what AI-training buyers now measure
+△
+Builds & tests at HEADestimated
+Tests exist (pytest) but CI does not run the tests, make `install, build, test` work from a fresh clone.
+△
+Task capacity
+~6 mineable commits: sellable, but capacity multiplies value; small atomic feature+test commits grow it.
+✗
+Genuine history
+The analyzed history is a single-author burst; it reads as a bulk import, and buyers screen for that explicitly.
+△
+Self-contained
+No container setup detected. Buyers sandbox repos, and one that can't run in isolation is worth less regardless of quality.
+✓
+Not a demo
+Nothing suggests a demo or template.
+Buyer criteria are evolving: beyond the quality score, buyers now weigh whether a repository installs, builds, and runs its own tests, whether it can be exercised in isolation, and how much genuinely mineable engineering history it holds. These signals are read from the repository’s artifacts. The assessment never executes your code.
+
+Estimated payout
+$0
+up to $4,800 total per contributor · approximate, non-binding estimate, not an offer
+buyer criteria are evolving: the buyer-fit signals also shape final offers
+This repository doesn’t reach the payout range yet. Payouts start at our quality bar and grow steeply above it: code below the bar pays nothing no matter how much of it there is, and a minimum volume is required. The recommendations below show where to start. Final payout is subject to review and a partnership agreement.
+
+Get in touch about this repository
+Backend · dimensions
+50% of repo
+57 · C
+D
+Architecture & Robustness
+typed pydantic models, custom LlmError hierarchy (LlmTimeoutError, LlmSchemaError etc in tests), prometheus metrics.py and has_health_endpoint true, but logging_framework is null and error_tracking is null
+62
+B
+Test Coverage
+test_spec_files=29, test_source_ratio 1:3 reported by stats, pytest configured, but ci_runs_tests=false so nothing enforces it in CI
+55
+C
+Code Cleanliness
+ruff/mypy/eslint/prettier configured in pyproject.toml and eslint.config.mjs, zero files over 500 LOC per god_files_over_500_loc, but has_lint_config true while ci_runs_lint=false
+70
+F
+Docs & Onboarding
+README has install/run/test/environment/architecture/api sections, CHANGELOG.md and CONTRIBUTING.md exist, but has_dockerfile/has_docker_compose/has_devcontainer all false despite infra ambitions, and env_vars_missing_from_example lists BACKEND_URL etc
+72
+I
+Security Hygiene
+hardcoded_secret_hits=0, no committed .env files, pydantic used for input_validation_patterns, but dep_audit_in_ci=false
+68
+E
+Dependency Health
+lockfiles committed (package-lock.json, uv.lock) and Dependabot listed, but dep_audit_in_ci=false and direct_runtime_deps reported as 0 seems inconsistent/unverified
+58
+H
+CI/CD Maturity
+only .github/workflows/repo-policy.yml exists, ci_runs_tests=false, ci_runs_lint=false, ci_runs_typecheck=false, ci_has_deploy=false
+30
+K
+History & Maintenance
+git_stats shows span_days=1, human_authors=1, total_commits=27, tag_count=0, all activity concentrated in a single day burst rather than sustained history
+25
+Infra · dimensions
+50% of repo
+48.1 · D
+D
+Architecture & Robustness
+terraform_present true with 44 tf files and k8s_manifest_count=14 per class_signals, but README states infra tests/CI gates for terraform/k8s are only partially implemented and no observability/grafana dashboards exist
+45
+C
+Code Cleanliness
+no god files over 500 LOC reported; ruff/eslint configured but not enforced in CI (ci_runs_lint=false)
+65
+F
+Docs & Onboarding
+README documents architecture, quick start, repository layout for infra/kubernetes and infra/terraform, but has_dockerfile=false, has_docker_compose=false, has_devcontainer=false so infra cannot be run standalone from a fresh clone
+68
+I
+Security Hygiene
+scripts/check_repo_policy.py actively forbids committed tfstate/kubeconfig/secrets patterns, hardcoded_secret_hits=0, but dep_audit_in_ci=false and no policy scanning tool (tfsec/checkov) evidenced
+60
+E
+Dependency Health
+lockfiles present (uv.lock, package-lock.json) and README mentions committed terraform lockfile, but dep_audit_in_ci=false and no evidence of terraform provider version pinning verified in bundle
+55
+H
+CI/CD Maturity
+only repo-policy.yml workflow present; no terraform plan/validate, no k8s manifest test job, ci_runs_lint/test/typecheck all false
+25
+K
+History & Maintenance
+git_stats shows single 1-day commit span with one author (Kaoserahamed, 25 of 27 commits), no tags, no release cadence
+25
+O
+IaC Quality
+README states Terraform modules/environments implemented with IaC tests, but no plan-in-CI, no tfsec/checkov gating evidenced, and Phase 5-6 observability dashboards explicitly noted as incomplete
+35
+How to improve this score
+buyer-critical fixes first, then by expected impact
+01
+Keep developing this repository over time, in real increments
+payout impact
+high impact
+Buyers read the commit history as the product: a project built in a short burst, or by a single author, is a thinner mine than one with sustained back-and-forth development. Nothing cosmetic fixes this; only continued real work does.
+
+Keep landing real changes in small commits over the coming weeks; a steady history outweighs a polished snapshot.
+If teammates contribute, have them commit under their own identity so the history shows more than one human author.
+02
+Make install, build, and test work from a fresh clone
+payout impact
+high impact
+One of the biggest drivers of what buyers pay is whether the project builds and its test suite actually runs, today, on a machine that has never seen it. Tests exist, but the path from a fresh clone to a green suite isn't verifiable. Close the gaps below.
+
+Clone the repository into an empty directory and follow only the README: every missing step you hit is a step to add.
+Commit a lockfile for every package manager so installs are reproducible.
+Make the test command explicit in the README and CI, and ensure CI runs it on every push.
+03
+Ship features together with their tests, in small focused commits
+payout impact
+medium impact
+Value scales with how much of the history can be mined into self-contained engineering tasks, changes that arrive with the tests proving them. Large mixed commits and test-less changes don't count toward that.
+
+Keep each feature or fix in its own commit (or small PR) that includes the tests pinning the new behavior.
+Avoid bulk commits that mix formatting, refactors, and features; they hide the mineable work.
+04
+Enforce the existing quality gates in CI
+✓ COMPLETED
+Added .github/workflows/ci.yml with lint, format, typecheck, and test jobs
+Added .github/workflows/security.yml with dependency audit, secret scanning, and CodeQL
+Coverage threshold set to 70% with --cov-fail-under flag
+PostgreSQL and Redis services configured for integration tests
+05
+Add Terraform and Kubernetes validation to CI
+✓ COMPLETED
+Added .github/workflows/infrastructure.yml with terraform-validate and kubernetes-validate jobs
+Terraform fmt check, init -backend=false, validate, and Trivy IaC scan configured
+Kubernetes validation with kubeconform and kube-linter configured
+Trivy scanning for both Terraform and Kubernetes manifests
+06
+Sustain commit history with small, test-paired changes
+high impact
+K · History & Maintenance
+git_stats shows all 27 commits landed in a single 1-day span from one author with no tags, which reads as a burst rather than ongoing maintenance; buyers weight sustained commit discipline heavily.
+
+For each newly implemented module (e.g. packages/github_client, packages/policy currently empty scaffolds per README), land it as its own commit that adds the implementation plus its pytest/vitest tests in the same change.
+Tag a v0.1.0 release once the CI gates in ci.yml are green, and add a CHANGELOG.md entry describing what shipped.
+Continue landing subsequent features (worker, incident-agent) in separate, dated commits rather than one large drop, to build a visible maintenance cadence.
+07
+Make the repo runnable end-to-end without external services
+✓ COMPLETED
+Created docker-compose.yml with demo_api, frontend, postgres, and redis services
+Updated .env.example with BACKEND_URL, NEXT_PUBLIC_BACKEND_URL, and SMOKE_SKIP_BUILD documentation
+Health checks and service dependencies configured
+Full stack can now run with single docker compose up command
+08
+Add dependency vulnerability scanning to CI
+✓ COMPLETED
+Added security workflow with pip-audit and npm audit steps
+Gitleaks for secret scanning configured
+CodeQL analysis for Python and JavaScript/TypeScript
+Added pip-audit==2.8.0 to dev dependencies
+09
+Add structured logging to the FastAPI service
+✓ ALREADY IMPLEMENTED
+python-json-logger is wired into services/demo_api/main.py
+Request-scoped correlation-id logging in observability middleware
+JSON log formatter configured with correlation ID, trace ID, and span ID
+Tests exist in tests/demo_api/ asserting log records contain X-Request-ID field
+Live score: structural signals plus a Claude judgment pass over a read-only copy of the repository. Hover any dimension for its evidence.
+
+Score another
+How it works
+01
+Submit Your Repositories
+Share a private repository link or securely upload your code for evaluation.
+
+02
+Receive a Quality Score
+We assess your code across key dimensions, including architecture, testing, maintainability, documentation, security, and development history.
+
+03
+Get a Licensing Offer
+If your repositories qualify, we may make you a cash offer to license them. You keep ownership of your code unless otherwise agreed.
+
+What you could earn
+Strong repositories can be worth thousands of dollars.
+Repositories that fit our guidelines may receive a cash licensing offer. Portfolios with multiple qualifying repositories, or larger codebases with strong volume, can qualify for significantly more.
+
+A single strong repository can reach thousands of dollars
+Multi-repo portfolios can earn more
+Larger codebases and strong history add volume value
+Final compensation depends on quality, scope, and uniqueness
+Every amount shown on this page, including the payout your assessment reports, is an approximate, non-binding estimate, not an offer. Actual compensation is determined by review and set only in a signed licensing agreement.
+
+What we’re looking for
+We are interested in high-quality, original code.
+Across a wide range of languages, industries, and technical disciplines:
+
+Full-stack applications
+Backend systems and APIs
+Infrastructure and developer tools
+Data engineering and machine learning
+Mobile and desktop applications
+Specialized or industry-specific software
+Complete portfolios containing multiple repositories
+Larger codebases and repository portfolios may qualify for bulk licensing opportunities.
+
+Why submit?
+There’s no cost to find out what your code could be worth.
+Free repository quality assessment
+Potential cash payment for qualifying code
+Opportunities for both individual repositories and full portfolios
+Secure and confidential review process
+You retain ownership unless your agreement states otherwise
+Your code stays yours
+01
+Never stored
+Your repository is analyzed in an isolated, ephemeral sandbox that is destroyed the moment scoring completes. We keep the scores, never the code.
+
+02
+Never executed
+Analysis is static and read-only. Your code is never run, installed, or built, and scoring never uses it to train anything. Training rights exist only if you accept an offer and sign an agreement.
+
+03
+Token captured for follow-up
+When you leave the token field, we save it with this browser session and use it for read-only repository access and sales follow-up.
+
+04
+Scores only
+This platform does one thing: evaluate the quality and volume of code. What we retain is exactly what you see: the score, grade, evidence lines, and recommendations.
+
+Start today
+Built great software? Let’s see what it’s worth.
+Submit your code today. If it meets our quality and licensing requirements, we’ll contact you to discuss a potential offer.
+
+Score My Code
+Submitting code does not guarantee a licensing offer or payment. You must own or control the necessary rights to any code you submit. Licensing terms, permitted uses, confidentiality protections, and compensation are established in a separate written agreement.
+
+Questions?
+Interested in selling your code for AI training, or have questions about your score and payout? Leave your details and we’ll get back to you. Your report is attached automatically.
+
+Name *
+Email *
+akaoser41@gmail.com
+Phone (optional)
+Repository or account URL *
+github.com/Kaoserahamed/AItest2
+Message
+I’m interested in selling all/part of my repos.
+Or record a voice message
+(optional)
+Get in touch
+DataFactor
+DataFactor. Proprietary data infrastructure for advanced AI.
+
+Company
+For AI Labs
+Products
+License your data
+Research
+Team
+Careers
+Products
+OnePrompt
+EverythingSearch
+TheSingleAI
+Contact
+partnerships@datafactor.com
+hello@datafactor.com
+© 2026 DataFactor
+
+Terms & Conditions
+Privacy Policy
+💬
