@@ -1,0 +1,138 @@
+name: Infrastructure
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-validate:
+    name: Terraform validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.x"
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Terraform init (backend-less)
+        working-directory: infra/terraform
+        run: |
+          for env in environments/*/; do
+            if [ -d "$env" ]; then
+              echo "Initializing $env"
+              cd "$env"
+              terraform init -backend=false
+              cd -
+            fi
+          done
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: |
+          for env in environments/*/; do
+            if [ -d "$env" ]; then
+              echo "Validating $env"
+              cd "$env"
+              terraform validate
+              cd -
+            fi
+          done
+
+      - name: Run Trivy IaC scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: "config"
+          scan-ref: "infra/terraform"
+          exit-code: "1"
+          severity: "HIGH,CRITICAL"
+          format: "sarif"
+          output: "trivy-terraform.sarif"
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-terraform.sarif"
+          category: "terraform"
+
+  kubernetes-validate:
+    name: Kubernetes validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install kubeconform
+        run: |
+          wget https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform-linux-amd64.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          chmod +x /usr/local/bin/kubeconform
+
+      - name: Install kube-linter
+        run: |
+          wget https://github.com/stackrox/kube-linter/releases/download/v0.7.2/kube-linter-linux.tar.gz
+          tar xf kube-linter-linux.tar.gz
+          sudo mv kube-linter /usr/local/bin/
+          chmod +x /usr/local/bin/kube-linter
+
+      - name: Validate Kubernetes manifests with kubeconform
+        run: |
+          if [ -d "infra/kubernetes/base" ]; then
+            kubeconform -strict -summary infra/kubernetes/base/*.yaml
+          fi
+          if [ -d "infra/kubernetes/overlays" ]; then
+            for overlay in infra/kubernetes/overlays/*/; do
+              if [ -d "$overlay" ]; then
+                echo "Validating overlay: $overlay"
+                kubeconform -strict -summary "$overlay"/*.yaml || true
+              fi
+            done
+          fi
+
+      - name: Run kube-linter
+        run: |
+          if [ -d "infra/kubernetes" ]; then
+            kube-linter lint infra/kubernetes/ --config infra/kubernetes/.kube-linter.yaml || true
+          fi
+        continue-on-error: true
+
+      - name: Run Trivy Kubernetes scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: "config"
+          scan-ref: "infra/kubernetes"
+          exit-code: "0"
+          severity: "HIGH,CRITICAL"
+          format: "sarif"
+          output: "trivy-k8s.sarif"
+
+      - name: Upload Trivy K8s results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-k8s.sarif"
+          category: "kubernetes"
