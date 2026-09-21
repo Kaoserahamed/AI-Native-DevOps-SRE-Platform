@@ -653,16 +653,16 @@ Output:
 # 14. Phase 10 — GitHub Integration and PR Automation
 
 ## Task 10.1 — GitHub adapter
-- [ ] GitHub App/token abstraction.
-- [ ] Repository metadata.
-- [ ] Commit history retrieval.
-- [ ] Deployment history retrieval.
-- [ ] Issue creation.
-- [ ] PR creation.
-- [ ] PR comment/update.
-- [ ] Checks/status retrieval.
+- [x] GitHub App/token abstraction
+- [x] Repository metadata
+- [x] Commit history retrieval
+- [x] Deployment history retrieval
+- [x] Issue creation
+- [x] PR creation
+- [x] PR comment/update
+- [x] Checks/status retrieval
 
-**Security:** least-privilege permission matrix.
+**Security:** least-privilege permission matrix documented.
 
 **Commit:** `feat: add GitHub integration adapter`
 
