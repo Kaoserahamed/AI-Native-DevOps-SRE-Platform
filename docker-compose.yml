@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: devops_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - platform
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - platform
+
+  demo-api:
+    build:
+      context: .
+      dockerfile: services/demo_api/Dockerfile
+      args:
+        APP_VERSION: 0.0.0
+        VCS_REF: dev
+    image: demo-api:dev
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://demo:demo@postgres:5432/devops_platform
+      REDIS_URL: redis://redis:6379/0
+      HOST: 0.0.0.0
+      PORT: 8000
+      APP_ENV: development
+      LOG_LEVEL: INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    networks:
+      - platform
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/demo-app/frontend/Dockerfile
+      args:
+        APP_VERSION: 0.0.0
+        VCS_REF: dev
+    image: demo-frontend:dev
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+      NODE_ENV: production
+    depends_on:
+      demo-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+    networks:
+      - platform
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  platform:
+    driver: bridge
