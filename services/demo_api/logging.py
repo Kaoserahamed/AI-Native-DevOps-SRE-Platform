@@ -54,13 +54,16 @@ def configure_logging(
     handler.setLevel(log_level)
     handler.addFilter(CorrelationFilter())
 
+    # ``json_default`` is the supported hook for values the encoder cannot serialize. A custom
+    # ``json_serializer`` must accept the ``default=`` keyword python-json-logger passes it, and a
+    # one-argument lambda fails *while formatting the log line* — which turns any error-level log
+    # into a logging failure. The default JSON encoder plus ``json_default`` is correct here.
     formatter = json.JsonFormatter(
         fmt="%(asctime)s %(levelname)s %(name)s %(correlation_id)s "
         f"{app_name} {app_version} {app_env} %(message)s",
         timestamp=True,
         rename_fields={"levelname": "level", "name": "logger"},
         json_default=str,
-        json_serializer=lambda obj: __import__("json").dumps(obj, default=str),
     )
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
