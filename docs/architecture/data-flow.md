@@ -195,12 +195,12 @@ AnalysisResult(
             category="DEPLOYMENT",
             description="v1.2.4 deployed 2min before incident",
             confidence=0.9,
-            evidence_ids=["EV-001", "EV-003"]
+            evidence_ids=["EV-001", "EV-003"],
         )
     ],
     evidence_citations=["EV-001", "EV-002", "EV-003"],
     uncertainties=["Memory limits not visible in logs"],
-    analyzed_at=datetime.now()
+    analyzed_at=datetime.now(),
 )
 ```
 
@@ -246,7 +246,7 @@ RemediationProposal(
         "from_version": "v1.2.4",
         "to_version": "v1.2.3",
         "service": "demo-api",
-        "namespace": "demo"
+        "namespace": "demo",
     },
     risk_level="HIGH",
     blast_radius="SERVICE",  # POD, SERVICE, NAMESPACE, CLUSTER
@@ -254,7 +254,7 @@ RemediationProposal(
     rollback_plan="Rollback to v1.2.4 if errors persist",
     confidence=0.85,
     requires_approval=True,
-    policy_result="REQUIRE_APPROVAL"
+    policy_result="REQUIRE_APPROVAL",
 )
 ```
 
@@ -295,7 +295,7 @@ Approval(
     decision="APPROVED",
     comment="Rollback approved, matches diagnosis",
     decided_at=datetime.now(),
-    expires_at=datetime.now() + timedelta(minutes=60)
+    expires_at=datetime.now() + timedelta(minutes=60),
 )
 ```
 
@@ -343,8 +343,8 @@ AuditEntry(
         "proposal_id": "PROP-001",
         "approval_id": "APPR-001",
         "pr_url": "https://github.com/org/repo/pull/123",
-        "action_hash": "sha256:abc123..."
-    }
+        "action_hash": "sha256:abc123...",
+    },
 )
 ```
 
@@ -477,6 +477,6 @@ approval_expiration_total
 ## References
 
 - [System Architecture](system-architecture.md)
-- [Observability](../../07-observability.md)
-- [Incident Lifecycle](../../09-incident-lifecycle.md)
-- [Database Schema](../database/schema.md)
+- [Observability](../07-observability.md)
+- [Incident Lifecycle](../09-incident-lifecycle.md)
+- [Database Schema](../adr/0004-postgresql-storage.md)

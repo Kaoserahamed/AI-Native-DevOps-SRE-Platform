@@ -90,7 +90,7 @@ LLM_API_KEY=sk-...
 GITHUB_TOKEN=ghp_...
 ```
 
-See [.env.example](.env.example) for all available options.
+See [.env.example](../../.env.example) for all available options.
 
 ### 5. Start Local Infrastructure
 
@@ -321,13 +321,13 @@ git commit --no-verify
    git push origin feature/my-feature
    ```
 
-See [git-workflow.md](git-workflow.md) for detailed branching strategy.
+See [18-governance.md](../18-governance.md) for detailed branching strategy.
 
 ## Next Steps
 
-- [Testing Guide](testing.md) - Writing and running tests
-- [Git Workflow](git-workflow.md) - Branching and PR process
-- [API Documentation](../api/authentication.md) - Using the APIs
+- [Testing Guide](../15-testing-strategy.md) - Writing and running tests
+- [Git Workflow](../18-governance.md) - Branching and PR process
+- [API Documentation](../01-architecture.md) - Using the APIs
 - [Architecture](../architecture/system-architecture.md) - Understanding the system
 
 ## Getting Help

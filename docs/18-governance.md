@@ -38,8 +38,9 @@ The following jobs must pass before merge. Security jobs are required, not advis
 | --- | --- | --- |
 | `repo-policy.yml` | `repository-policy` | Governance files present, no forbidden tracked files, actions pinned by SHA |
 | `repo-policy.yml` | `markdown-links` | Local and external documentation links resolve |
-| `ci.yml` | `quality` | Format, lint, type-check, unit tests, coverage gate |
-| `ci.yml` | `contract` | Schema and adapter contract tests against fakes |
+| `ci.yml` | `quality` | Ruff lint and strict mypy type-check |
+| `ci.yml` | `tests` | Unit tests with a 70% coverage floor |
+| `ci.yml` | `frontend` | npm ci, eslint, prettier, typecheck, vitest coverage |
 | `security.yml` | `secret-scan` | No credentials ever committed |
 | `security.yml` | `dependency-audit`, `dependency-review` | Known vulnerable or disallowed dependencies |
 | `security.yml` | `sast` | Static analysis of Python and TypeScript |

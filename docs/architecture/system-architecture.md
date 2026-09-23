@@ -423,6 +423,6 @@ Code Push → CI Checks → Build Images → Scan → Deploy Staging → E2E Tes
 ## References
 
 - [Data Flow Diagram](data-flow.md)
-- [Decision Records](decisions/)
-- [API Documentation](../api/)
-- [Security Model](../security/threat-model.md)
+- [Decision Records](../adr/)
+- [API Documentation](../01-architecture.md)
+- [Security Model](../18-governance.md)

@@ -39,7 +39,9 @@ test: ## Run the fast test tiers (unit + contract)
 	$(PYTEST) -m "$(FAST_MARKERS)"
 
 test-integration: ## Run integration tests against ephemeral services
-	$(PYTEST) -m "integration"
+	docker compose -f compose.yaml up -d --build
+	trap 'docker compose -f compose.yaml down --volumes --remove-orphans' EXIT; \
+	$(PYTEST) tests/contract tests/demo_api
 
 test-agent-eval: ## Run the agent evaluation and regression suite
 	$(PYTEST) -m "agent_eval"

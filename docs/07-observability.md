@@ -41,11 +41,13 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Initialize tracer provider
 provider = TracerProvider(
-    resource=Resource.create({
-        "service.name": "demo-api",
-        "service.version": "1.0.0",
-        "deployment.environment": "production",
-    })
+    resource=Resource.create(
+        {
+            "service.name": "demo-api",
+            "service.version": "1.0.0",
+            "deployment.environment": "production",
+        }
+    )
 )
 
 # Configure OTLP exporter

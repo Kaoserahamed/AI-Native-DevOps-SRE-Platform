@@ -374,4 +374,4 @@ dist/                # Build artifacts
 
 - [03-local-development.md](./03-local-development.md) - Setup instructions
 - [04-configuration.md](./04-configuration.md) - Configuration management
-- [ADR-0001](./adr/0001-monorepo-structure.md) - Monorepo decision rationale
+- [Architecture Decision Records](./adr/README.md) - Monorepo decision rationale

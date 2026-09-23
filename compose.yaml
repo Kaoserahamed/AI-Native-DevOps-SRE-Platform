@@ -6,136 +6,63 @@
 #   docker-compose down       # Stop all services
 
 services:
-  # PostgreSQL database
   postgres:
-    image: postgres:15-alpine
-    container_name: devops-postgres
+    image: postgres:17-alpine
     environment:
-      POSTGRES_USER: devops_user
-      POSTGRES_PASSWORD: devops_password
-      POSTGRES_DB: devops_db
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: devops_platform
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devops_user"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U demo -d devops_platform"]
+      interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
     networks:
-      - devops-network
+      - platform
 
-  # Redis cache
   redis:
     image: redis:7-alpine
-    container_name: devops-redis
-    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
     networks:
-      - devops-network
+      - platform
 
-  # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector:latest
-    container_name: devops-otel-collector
+    image: otel/opentelemetry-collector-contrib:0.143.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./observability/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-      - "8889:8889"   # Prometheus exporter
+      - "4317:4317"
+      - "4318:4318"
     networks:
-      - devops-network
+      - platform
 
-  # Prometheus
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: devops-prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./observability/alerts/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    networks:
-      - devops-network
-    depends_on:
-      - otel-collector
-
-  # Grafana
-  grafana:
-    image: grafana/grafana:latest
-    container_name: devops-grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./observability/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    ports:
-      - "3000:3000"
-    networks:
-      - devops-network
-    depends_on:
-      - prometheus
-
-  # Loki for logs
-  loki:
-    image: grafana/loki:latest
-    container_name: devops-loki
-    command: -config.file=/etc/loki/local-config.yaml
-    ports:
-      - "3100:3100"
-    volumes:
-      - loki_data:/loki
-    networks:
-      - devops-network
-
-  # Tempo for traces
-  tempo:
-    image: grafana/tempo:latest
-    container_name: devops-tempo
-    command: ["-config.file=/etc/tempo.yaml"]
-    volumes:
-      - ./observability/tempo/tempo-config.yaml:/etc/tempo.yaml:ro
-      - tempo_data:/tmp/tempo
-    ports:
-      - "3200:3200"   # Tempo HTTP
-      - "4317:4317"   # OTLP gRPC (shared with collector)
-    networks:
-      - devops-network
-
-  # Demo API Backend
   demo-api:
     build:
-      context: apps/demo-app/backend
-      dockerfile: Dockerfile
-    container_name: devops-demo-api
-    environment:
-      - DATABASE_URL=postgresql://devops_user:devops_password@postgres:5432/devops_db
-      - REDIS_URL=redis://redis:6379/0
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - LOG_LEVEL=INFO
-      - ENVIRONMENT=development
+      context: .
+      dockerfile: services/demo_api/Dockerfile
+      args:
+        APP_VERSION: 0.0.0
+        VCS_REF: dev
+    image: demo-api:dev
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://demo:demo@postgres:5432/devops_platform
+      REDIS_URL: redis://redis:6379/0
+      OTEL_ENDPOINT: http://otel-collector:4317
+      HOST: 0.0.0.0
+      PORT: 8000
+      APP_ENV: development
+      LOG_LEVEL: INFO
     depends_on:
       postgres:
         condition: service_healthy
@@ -143,45 +70,12 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
-    networks:
-      - devops-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # Demo Web Frontend
-  demo-web:
-    build:
-      context: apps/demo-app/frontend
-      dockerfile: Dockerfile
-    container_name: devops-demo-web
-    environment:
-      - BACKEND_URL=http://demo-api:8000
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    ports:
-      - "3001:3000"
-    depends_on:
-      - demo-api
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
     networks:
-      - devops-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  postgres_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
-  loki_data:
-  tempo_data:
-
-networks:
-  devops-network:
-    driver: bridge
+      - platform
+    restart: unless-stopped
