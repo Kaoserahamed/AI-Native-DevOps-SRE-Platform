@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 import logging
+from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -38,7 +39,7 @@ def create_app() -> FastAPI:
     @app.post("/api/v1/approvals", status_code=201)
     async def create_approval(
         req: ApprovalRequest, user: PrincipalId = Depends(verify_identity)
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Create approval/rejection."""
         if user != req.approver_identity:
             raise HTTPException(403, "Identity mismatch")
@@ -70,25 +71,25 @@ def create_app() -> FastAPI:
         return {"approval": approval.model_dump(mode="json")}
 
     @app.get("/api/v1/approvals/{approval_id}")
-    async def get_approval(approval_id: Identifier) -> dict:
+    async def get_approval(approval_id: Identifier) -> dict[str, Any]:
         """Get approval details."""
         # Stub: would fetch from repository
         return {"approval_id": approval_id, "status": "pending"}
 
     @app.get("/api/v1/approvals/pending")
-    async def list_pending(limit: int = 50) -> dict:
+    async def list_pending(limit: int = 50) -> dict[str, Any]:
         """List pending approvals for current user."""
         # Stub: would fetch pending approvals
         return {"approvals": [], "total": 0}
 
     @app.post("/api/v1/approvals/{approval_id}/validate")
-    async def validate(approval_id: Identifier, action_hash: Digest) -> dict:
+    async def validate(approval_id: Identifier, action_hash: Digest) -> dict[str, Any]:
         """Validate approval."""
         # Stub: would check approval
         return {"valid": True}
 
     @app.get("/health")
-    async def health() -> dict:
+    async def health() -> dict[str, str]:
         """Health."""
         return {"status": "healthy"}
 
