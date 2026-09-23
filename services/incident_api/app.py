@@ -10,12 +10,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 import os
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from pydantic import BaseModel
 
-from packages.contracts.audit import ActorType, AuditEntry
-from packages.contracts.common import Identifier
+from packages.contracts.audit import AuditEntry
+from packages.contracts.common import ActorType, Identifier
 from packages.contracts.evidence import Evidence
 from packages.contracts.incidents import Incident, IncidentStatus
 from packages.observability.logging_config import (
@@ -159,7 +160,7 @@ def create_app() -> FastAPI:
                 "environment": incident.service.environment.value,
             },
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Created incident %s (severity: %s)", incident.incident_id, incident.severity)
 
@@ -191,30 +192,44 @@ def create_app() -> FastAPI:
 
         # Apply updates
         now = datetime.now(tz=UTC)
-        changes = {}
+        changes: dict[str, Any] = {}
 
-        if request.status:
+        if request.status and request.status != incident.status:
             old_status = incident.status
-            incident.status = request.status
+            try:
+                incident = incident.transitioned_to(
+                    request.status,
+                    at=now,
+                    resolution_summary=request.resolution_summary,
+                    post_incident_notes=request.post_incident_notes,
+                )
+            except ValueError as exc:
+                # Contract violations (illegal transition, missing evidence or
+                # timestamps) are caller errors, not server faults.
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+                ) from exc
             changes["status"] = {"old": old_status.value, "new": request.status.value}
+            if request.resolution_summary:
+                changes["resolution_summary"] = "updated"
+            if request.post_incident_notes:
+                changes["post_incident_notes"] = "updated"
+        else:
+            try:
+                if request.resolution_summary:
+                    incident.resolution_summary = request.resolution_summary
+                    changes["resolution_summary"] = "updated"
 
-            # Update timestamps based on status
-            if request.status == IncidentStatus.ACKNOWLEDGED and not incident.acknowledged_at:
-                incident.acknowledged_at = now
-            elif request.status == IncidentStatus.MITIGATING and not incident.mitigated_at:
-                incident.mitigated_at = now
-            elif request.status == IncidentStatus.RESOLVED and not incident.resolved_at:
-                incident.resolved_at = now
-            elif request.status == IncidentStatus.CLOSED and not incident.closed_at:
-                incident.closed_at = now
+                if request.post_incident_notes:
+                    incident.post_incident_notes = request.post_incident_notes
+                    changes["post_incident_notes"] = "updated"
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+                ) from exc
 
-        if request.resolution_summary:
-            incident.resolution_summary = request.resolution_summary
-            changes["resolution_summary"] = "updated"
-
-        if request.post_incident_notes:
-            incident.post_incident_notes = request.post_incident_notes
-            changes["post_incident_notes"] = "updated"
+        if not changes:
+            return incident
 
         # Save changes
         await incident_repo.save(incident)
@@ -231,7 +246,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details=changes,
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Updated incident %s: %s", incident_id, changes)
 
@@ -269,12 +284,18 @@ def create_app() -> FastAPI:
         if not incident:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
-        # Link evidence to incident
-        evidence = request.evidence
-        evidence.incident_id = incident_id
+        # Link evidence to incident. The contract is frozen, so the request
+        # payload is copied with the path's incident id taking precedence.
+        evidence = request.evidence.model_copy(update={"incident_id": incident_id})
 
         # Save evidence
         await evidence_repo.save(evidence)
+
+        # Record the citation on the incident itself: every state past OPEN
+        # requires the incident to reference at least one evidence item.
+        if evidence.evidence_id not in incident.evidence_ids:
+            incident.evidence_ids = [*incident.evidence_ids, evidence.evidence_id]
+            await incident_repo.save(incident)
 
         # Audit log
         now = datetime.now(tz=UTC)
@@ -293,7 +314,7 @@ def create_app() -> FastAPI:
                 "collector": evidence.collector.value,
             },
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Attached evidence %s to incident %s", evidence.evidence_id, incident_id)
 
@@ -341,8 +362,12 @@ def create_app() -> FastAPI:
             )
 
         now = datetime.now(tz=UTC)
-        incident.status = IncidentStatus.ACKNOWLEDGED
-        incident.acknowledged_at = now
+        try:
+            incident = incident.transitioned_to(IncidentStatus.ACKNOWLEDGED, at=now)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -356,7 +381,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": "OPEN → ACKNOWLEDGED"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Acknowledged incident %s", incident_id)
         return incident
@@ -379,7 +404,12 @@ def create_app() -> FastAPI:
             )
 
         now = datetime.now(tz=UTC)
-        incident.status = IncidentStatus.INVESTIGATING
+        try:
+            incident = incident.transitioned_to(IncidentStatus.INVESTIGATING, at=now)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -393,7 +423,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": "ACKNOWLEDGED → INVESTIGATING"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Started investigation for incident %s", incident_id)
         return incident
@@ -416,8 +446,12 @@ def create_app() -> FastAPI:
             )
 
         now = datetime.now(tz=UTC)
-        incident.status = IncidentStatus.MITIGATING
-        incident.mitigated_at = now
+        try:
+            incident = incident.transitioned_to(IncidentStatus.MITIGATING, at=now)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -431,7 +465,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": "INVESTIGATING → MITIGATING"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Started mitigation for incident %s", incident_id)
         return incident
@@ -454,11 +488,23 @@ def create_app() -> FastAPI:
                 detail=f"Cannot resolve incident from {incident.status} state",
             )
 
+        if not request.resolution_summary:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="resolution_summary is required to resolve an incident",
+            )
+
         now = datetime.now(tz=UTC)
-        incident.status = IncidentStatus.RESOLVED
-        incident.resolved_at = now
-        if request.resolution_summary:
-            incident.resolution_summary = request.resolution_summary
+        try:
+            incident = incident.transitioned_to(
+                IncidentStatus.RESOLVED,
+                at=now,
+                resolution_summary=request.resolution_summary,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -472,7 +518,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": "MITIGATING → RESOLVED"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Resolved incident %s", incident_id)
         return incident
@@ -483,20 +529,29 @@ def create_app() -> FastAPI:
         incident_repo: IncidentRepository = Depends(get_incident_repo),
         audit_repo: AuditRepository = Depends(get_audit_repo),
     ) -> Incident:
-        """Reopen an incident (state transition: RESOLVED/CLOSED → OPEN)."""
+        """Reopen an incident (state transition: RESOLVED → REOPENED).
+
+        A closed incident is terminal: the contract models a recurrence as a new
+        incident that references the old one, so only RESOLVED can be reopened.
+        """
         incident = await incident_repo.find_by_id(incident_id)
         if not incident:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incident not found")
 
-        if incident.status not in [IncidentStatus.RESOLVED, IncidentStatus.CLOSED]:
+        if incident.status != IncidentStatus.RESOLVED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot reopen incident from {incident.status} state",
+                detail=f"Cannot reopen incident from {incident.status} state (must be RESOLVED)",
             )
 
         now = datetime.now(tz=UTC)
         old_status = incident.status
-        incident.status = IncidentStatus.OPEN
+        try:
+            incident = incident.transitioned_to(IncidentStatus.REOPENED, at=now)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -510,7 +565,7 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": f"{old_status.value} → OPEN"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Reopened incident %s", incident_id)
         return incident
@@ -534,10 +589,16 @@ def create_app() -> FastAPI:
             )
 
         now = datetime.now(tz=UTC)
-        incident.status = IncidentStatus.CLOSED
-        incident.closed_at = now
-        if request.post_incident_notes:
-            incident.post_incident_notes = request.post_incident_notes
+        try:
+            incident = incident.transitioned_to(
+                IncidentStatus.CLOSED,
+                at=now,
+                post_incident_notes=request.post_incident_notes,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
         await incident_repo.save(incident)
 
         audit_entry = AuditEntry(
@@ -551,13 +612,13 @@ def create_app() -> FastAPI:
             outcome="success",
             details={"status_change": "RESOLVED → CLOSED"},
         )
-        await audit_repo.append(audit_entry)
+        await audit_repo.append(audit_entry.to_event())
 
         logger.info("Closed incident %s", incident_id)
         return incident
 
     @app.get("/health")
-    async def health_check() -> dict:
+    async def health_check() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy", "service": "incident-api"}
 
