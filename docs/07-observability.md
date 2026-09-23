@@ -149,6 +149,40 @@ Use redaction for sensitive fields:
 logger.info("User login", user_id=user_id, email="***@example.com")
 ```
 
+## Error Tracking (Sentry)
+
+Error tracking is opt-in and configured entirely from the deployment environment; no DSN or project
+key is ever committed:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `SENTRY_DSN` | Project DSN reported to when the service opts in | unset (tracking off) |
+| `SENTRY_ENVIRONMENT` | Environment label attached to every event | service's `environment` argument |
+
+```python
+configure_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    service_name="incident-api",
+    environment=os.getenv("ENVIRONMENT", "development"),
+    enable_sentry=os.getenv("SENTRY_DSN") is not None,
+)
+```
+
+Guarantees enforced in `packages/observability/logging_config.py`:
+
+- **Opt-in:** a DSN in the environment alone does not start reporting; `enable_sentry` must be true
+  (or a DSN passed explicitly), so a stray variable cannot begin shipping telemetry.
+- **No PII:** `send_default_pii=False`, and `Authorization`, `Cookie` and `X-API-Key` request
+  headers are redacted before an event is sent.
+- **No noisy alerts:** `ValidationError` and `HTTPException` are dropped as control flow, not
+  defects.
+- **No key leakage:** only the DSN host is logged, never the project key embedded in the DSN.
+- **Sampling:** 10% of traces and profiles in production, 100% elsewhere.
+- **Fail-open:** an uninstalled or misconfigured SDK logs a warning/error but never blocks startup.
+
+`SENTRY_DSN` and `SENTRY_ENVIRONMENT` are defined in `.env.example`; deployments must supply them
+through their secret store or platform environment.
+
 ## Metrics
 
 ### Metric Types

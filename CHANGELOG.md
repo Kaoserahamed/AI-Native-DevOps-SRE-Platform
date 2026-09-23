@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prometheus alert rules for SRE monitoring
 - Grafana dashboard for API overview
 - Complete documentation structure
+- Sentry error tracking resolved from `SENTRY_DSN`/`SENTRY_ENVIRONMENT` inside `configure_logging`
 
 ### Changed
 - Improved README with clearer quick start instructions

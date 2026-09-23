@@ -6,6 +6,7 @@ with JSON formatting, correlation ID support, and Sentry integration.
 
 import logging
 import logging.config
+import os
 import sys
 from typing import Any, cast
 
@@ -58,7 +59,14 @@ def configure_logging(
     enable_sentry
         Whether to enable Sentry error tracking
     sentry_dsn
-        Sentry DSN for error reporting
+        Sentry DSN for error reporting; when omitted, ``SENTRY_DSN`` is used
+
+    Notes
+    -----
+    Error tracking is opt-in: nothing is reported unless ``enable_sentry`` is true or an explicit
+    ``sentry_dsn`` is passed. The DSN may come from ``SENTRY_DSN`` and the reporting environment
+    from ``SENTRY_ENVIRONMENT`` (see ``.env.example``), so a deployment can turn tracking on
+    without a code change.
     """
     # Standard library logging configuration
     logging.basicConfig(
@@ -112,8 +120,15 @@ def configure_logging(
         cache_logger_on_first_use=True,
     )
 
-    # Initialize Sentry if enabled
-    if enable_sentry and sentry_dsn and sentry_sdk is not None:
+    # Error tracking is opt-in (`enable_sentry`) and deployment-configured: a caller that does not
+    # pass a DSN gets the deployment's SENTRY_DSN, and the reporting environment comes from
+    # SENTRY_ENVIRONMENT. Project keys therefore stay out of code, matching `.env.example`.
+    if enable_sentry and not sentry_dsn:
+        sentry_dsn = os.getenv("SENTRY_DSN") or None
+
+    # Initialize Sentry when a DSN is available; the switch above decides whether the environment
+    # is even consulted, so a stray variable alone cannot start shipping telemetry.
+    if sentry_dsn and sentry_sdk is not None:
         try:
             from sentry_sdk.integrations.logging import LoggingIntegration
 
@@ -121,12 +136,13 @@ def configure_logging(
                 level=logging.INFO,  # Capture info and above as breadcrumbs
                 event_level=logging.ERROR,  # Send errors as events
             )
+            sentry_environment = os.getenv("SENTRY_ENVIRONMENT") or environment
 
             sentry_sdk.init(
                 dsn=sentry_dsn,
-                environment=environment,
-                traces_sample_rate=0.1 if environment == "production" else 1.0,
-                profiles_sample_rate=0.1 if environment == "production" else 1.0,
+                environment=sentry_environment,
+                traces_sample_rate=0.1 if sentry_environment == "production" else 1.0,
+                profiles_sample_rate=0.1 if sentry_environment == "production" else 1.0,
                 integrations=[sentry_logging],
                 send_default_pii=False,  # Don't send PII
                 attach_stacktrace=True,

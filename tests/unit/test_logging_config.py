@@ -8,6 +8,7 @@ from itertools import count
 from typing import Any
 from unittest import mock
 
+import pytest
 import structlog
 
 from packages.observability.logging_config import (
@@ -23,7 +24,7 @@ from packages.observability.logging_config import (
 @contextmanager
 def capture_processor_output(
     *, level: str = "INFO", environment: str = "production", service_name: str = "test-service"
-) -> Iterator[tuple[structlog.stdlib.BoundLogger, dict[str, Any]]]:
+) -> Iterator[tuple[structlog.BoundLogger, dict[str, Any]]]:
     """Configure logging, then capture the event dict structlog hands to the renderer.
 
     Intercepting the final processor is the only way to assert on the real output without parsing
@@ -159,7 +160,7 @@ def test_sentry_before_send_redacts_sensitive_headers() -> None:
             }
         }
     }
-    hint = {}
+    hint: dict[str, Any] = {}
 
     result = _sentry_before_send(event, hint)
 
@@ -202,8 +203,14 @@ def test_sentry_before_send_allows_normal_errors() -> None:
 
 
 @mock.patch("packages.observability.logging_config.sentry_sdk")
-def test_configure_logging_with_sentry(mock_sentry: mock.Mock) -> None:
+def test_configure_logging_with_sentry(
+    mock_sentry: mock.Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test Sentry initialization when enabled."""
+    # Ambient variables must not decide what this test observes.
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("SENTRY_ENVIRONMENT", raising=False)
+
     configure_logging(
         level="INFO",
         service_name="test-service",
@@ -243,6 +250,59 @@ def test_configure_logging_with_sentry_never_logs_the_dsn_key(mock_sentry: mock.
     assert log_events, "enabling Sentry should record which host was contacted"
     assert all("secret-project-key" not in message for message in log_events)
     assert any("sentry.io" in message for message in log_events)
+
+
+def test_configure_logging_reads_sentry_settings_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A deployment must be able to enable error tracking through the environment alone."""
+    monkeypatch.setenv("SENTRY_DSN", "https://env-project-key@sentry.io/987654")
+    monkeypatch.setenv("SENTRY_ENVIRONMENT", "staging")
+
+    # Patching the module-level SDK reference replaces the transport, so the assertions below
+    # observe the exact ``init`` call without a client being built or an event leaving the process.
+    with mock.patch("packages.observability.logging_config.sentry_sdk") as mock_sentry:
+        configure_logging(
+            level="INFO",
+            service_name="test-service",
+            environment="production",
+            enable_sentry=True,
+        )
+
+    mock_sentry.init.assert_called_once()
+    call_kwargs = mock_sentry.init.call_args.kwargs
+    assert call_kwargs["dsn"] == "https://env-project-key@sentry.io/987654"
+    # The reported environment follows SENTRY_ENVIRONMENT; the logging renderer keeps following the
+    # `environment` argument, so "production" still selects JSON output.
+    assert call_kwargs["environment"] == "staging"
+    assert call_kwargs["traces_sample_rate"] == 1.0  # only production is sampled down
+    assert call_kwargs["profiles_sample_rate"] == 1.0
+    assert call_kwargs["send_default_pii"] is False
+    assert call_kwargs["before_send"] is _sentry_before_send
+
+
+def test_configure_logging_without_any_dsn_keeps_sentry_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Opting in is not enough: with no DSN configured, no client may be created."""
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+
+    with mock.patch("packages.observability.logging_config.sentry_sdk") as mock_sentry:
+        configure_logging(level="INFO", service_name="test-service", enable_sentry=True)
+
+    mock_sentry.init.assert_not_called()
+
+
+def test_configure_logging_requires_opt_in_for_an_environment_dsn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A DSN in the environment alone must not start reporting: the opt-in switch still decides."""
+    monkeypatch.setenv("SENTRY_DSN", "https://env-project-key@sentry.io/987654")
+
+    with mock.patch("packages.observability.logging_config.sentry_sdk") as mock_sentry:
+        configure_logging(level="INFO", service_name="test-service", enable_sentry=False)
+
+    mock_sentry.init.assert_not_called()
 
 
 def test_configure_logging_without_sentry() -> None:
