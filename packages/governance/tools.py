@@ -117,9 +117,31 @@ class ToolDefinition:
             )
 
 
-#: Arguments the read-only telemetry tools accept.
-READ_ARGUMENTS: Final[frozenset[str]] = frozenset(
-    {"service", "namespace", "workload", "kind", "query", "start", "end", "limit", "revision"}
+#: Arguments a read-only telemetry query may carry. Each family declares only the arguments it can act
+#: on, so the allowlist stays a superset of nothing: ``MAX_TOOL_ARGUMENTS`` bounds every tool, and a tool
+#: that accepted an argument it cannot use would turn an argument-map into an unbounded API call.
+LOG_ARGUMENTS: Final[frozenset[str]] = frozenset(
+    {"service", "namespace", "workload", "query", "start", "end", "limit"}
+)
+
+#: Arguments a bounded PromQL query may carry. It is keyed by query text rather than a workload name.
+METRIC_ARGUMENTS: Final[frozenset[str]] = frozenset(
+    {"service", "namespace", "query", "start", "end", "limit"}
+)
+
+#: Arguments a trace sample may carry; ``revision`` narrows a sample to one release.
+TRACE_ARGUMENTS: Final[frozenset[str]] = frozenset(
+    {"service", "namespace", "workload", "query", "start", "end", "limit", "revision"}
+)
+
+#: Arguments a workload inspection may carry.
+INSPECT_ARGUMENTS: Final[frozenset[str]] = frozenset(
+    {"service", "namespace", "workload", "kind", "limit"}
+)
+
+#: Arguments a deployment-history read may carry.
+DEPLOYMENT_ARGUMENTS: Final[frozenset[str]] = frozenset(
+    {"service", "namespace", "workload", "kind", "limit", "revision"}
 )
 
 TOOL_DEFINITIONS: Final[Mapping[AgentTool, ToolDefinition]] = {
@@ -128,35 +150,35 @@ TOOL_DEFINITIONS: Final[Mapping[AgentTool, ToolDefinition]] = {
         kind=ToolKind.READ_ONLY,
         permission=ToolPermission.READ_TELEMETRY,
         description="Query the log backend for a service and time window.",
-        allowed_arguments=READ_ARGUMENTS,
+        allowed_arguments=LOG_ARGUMENTS,
     ),
     AgentTool.PROMETHEUS_QUERY: ToolDefinition(
         tool=AgentTool.PROMETHEUS_QUERY,
         kind=ToolKind.READ_ONLY,
         permission=ToolPermission.READ_TELEMETRY,
         description="Run a bounded PromQL query over the evidence window.",
-        allowed_arguments=READ_ARGUMENTS,
+        allowed_arguments=METRIC_ARGUMENTS,
     ),
     AgentTool.TRACE_QUERY: ToolDefinition(
         tool=AgentTool.TRACE_QUERY,
         kind=ToolKind.READ_ONLY,
         permission=ToolPermission.READ_TELEMETRY,
         description="Sample traces for a service inside the evidence window.",
-        allowed_arguments=READ_ARGUMENTS,
+        allowed_arguments=TRACE_ARGUMENTS,
     ),
     AgentTool.KUBERNETES_INSPECT: ToolDefinition(
         tool=AgentTool.KUBERNETES_INSPECT,
         kind=ToolKind.READ_ONLY,
         permission=ToolPermission.READ_TELEMETRY,
         description="Read workload status, conditions and recent events.",
-        allowed_arguments=READ_ARGUMENTS,
+        allowed_arguments=INSPECT_ARGUMENTS,
     ),
     AgentTool.DEPLOYMENT_HISTORY: ToolDefinition(
         tool=AgentTool.DEPLOYMENT_HISTORY,
         kind=ToolKind.READ_ONLY,
         permission=ToolPermission.READ_DEPLOYMENT_HISTORY,
         description="Read deployment and release history for a service.",
-        allowed_arguments=READ_ARGUMENTS,
+        allowed_arguments=DEPLOYMENT_ARGUMENTS,
     ),
     AgentTool.REPOSITORY_READ: ToolDefinition(
         tool=AgentTool.REPOSITORY_READ,
@@ -170,7 +192,11 @@ TOOL_DEFINITIONS: Final[Mapping[AgentTool, ToolDefinition]] = {
         kind=ToolKind.WRITE,
         permission=ToolPermission.WRITE_ISSUE,
         description="Open an evidence-backed incident issue.",
-        allowed_arguments=frozenset({"repository", "title", "body", "incident_id"}),
+        # A write reaches outside the platform, so the authorizer requires the action hash that binds the
+        # issue to the decision that produced it. The definition must therefore accept that argument.
+        allowed_arguments=frozenset(
+            {"repository", "title", "body", "incident_id", ACTION_HASH_ARGUMENT}
+        ),
     ),
     AgentTool.PULL_REQUEST_CREATE: ToolDefinition(
         tool=AgentTool.PULL_REQUEST_CREATE,

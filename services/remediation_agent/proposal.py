@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
+import logging
 
 from packages.contracts.common import Confidence, Identifier
 from packages.contracts.incidents import CauseCategory
@@ -126,22 +126,21 @@ class ProposalEngine:
             return self._rollback_proposal(
                 proposal_id, incident_id, evidence_ids, confidence, service
             )
-        elif cause_category == CauseCategory.RESOURCE_EXHAUSTION:
+        if cause_category == CauseCategory.RESOURCE_EXHAUSTION:
             return self._scale_up_proposal(
                 proposal_id, incident_id, evidence_ids, confidence, service
             )
-        elif cause_category == CauseCategory.DEPENDENCY_FAILURE:
+        if cause_category == CauseCategory.DEPENDENCY_FAILURE:
             return self._restart_proposal(
                 proposal_id, incident_id, evidence_ids, confidence, service
             )
-        elif cause_category == CauseCategory.CONFIGURATION_ERROR:
+        if cause_category == CauseCategory.CONFIGURATION_ERROR:
             return self._config_fix_proposal(
                 proposal_id, incident_id, evidence_ids, confidence, service
             )
-        else:
-            return self._manual_investigation_proposal(
-                proposal_id, incident_id, evidence_ids, confidence, service
-            )
+        return self._manual_investigation_proposal(
+            proposal_id, incident_id, evidence_ids, confidence, service
+        )
 
     def _rollback_proposal(
         self,
@@ -250,7 +249,7 @@ class ProposalEngine:
             required_approvals=2,  # Higher approval for config changes
             safe_to_automate=False,
             commands=[
-                f"# Manual review of ConfigMap required",
+                "# Manual review of ConfigMap required",
                 f"kubectl get configmap {service}-config -n demo -o yaml",
             ],
         )
@@ -278,7 +277,7 @@ class ProposalEngine:
             required_approvals=0,  # No action to approve
             safe_to_automate=False,
             commands=[
-                f"# Review evidence and investigate manually",
+                "# Review evidence and investigate manually",
                 f"kubectl logs -l app.kubernetes.io/name={service} -n demo --tail=100",
             ],
         )

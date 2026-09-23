@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
+import logging
 
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from packages.contracts.audit import ActorType, AuditEntry
-from packages.contracts.common import Digest, Identifier, PrincipalId
-from packages.contracts.remediation import Approval, ApprovalDecision, Approver, RemediationProposal
+from packages.contracts.common import ActorType, Digest, Identifier, PrincipalId
+from packages.contracts.remediation import Approval, ApprovalDecision, Approver
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Approval API", version="1.0.0")
 
     @app.post("/api/v1/approvals", status_code=201)
-    async def create_approval(req: ApprovalRequest, user: PrincipalId = Depends(verify_identity)) -> dict:
+    async def create_approval(
+        req: ApprovalRequest, user: PrincipalId = Depends(verify_identity)
+    ) -> dict:
         """Create approval/rejection."""
         if user != req.approver_identity:
             raise HTTPException(403, "Identity mismatch")

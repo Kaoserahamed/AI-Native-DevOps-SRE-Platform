@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timedelta, timezone
 
 from services.incident_agent.evidence import (
     Evidence,
@@ -34,7 +35,7 @@ def custom_retriever() -> EvidenceRetriever:
 @pytest.mark.unit
 async def test_retrieve_evidence_returns_dict(retriever: EvidenceRetriever) -> None:
     """Test that retrieve_evidence returns a dictionary."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     evidence = await retriever.retrieve_evidence(
         incident_id="inc-001",
         service="demo-api",
@@ -56,7 +57,7 @@ async def test_retrieve_evidence_respects_constraints(custom_retriever: Evidence
 @pytest.mark.unit
 async def test_retrieve_incident_evidence_convenience_function() -> None:
     """Test the convenience function works correctly."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     evidence = await retrieve_incident_evidence(
         incident_id="inc-002",
         service="demo-api",
@@ -69,7 +70,7 @@ async def test_retrieve_incident_evidence_convenience_function() -> None:
 @pytest.mark.unit
 async def test_retrieve_evidence_with_custom_constraints_function() -> None:
     """Test convenience function with custom constraints."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     constraints = EvidenceConstraints(time_window_minutes=10)
 
     evidence = await retrieve_incident_evidence(
@@ -85,7 +86,7 @@ async def test_retrieve_evidence_with_custom_constraints_function() -> None:
 @pytest.mark.unit
 def test_evidence_dataclass_creation() -> None:
     """Test Evidence dataclass can be created."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     evidence = Evidence(
         evidence_id="ev-001",
         source_type="log",

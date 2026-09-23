@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
-import pytest
-from datetime import datetime, timezone
 
-from packages.contracts.common import Confidence, Severity
+import pytest
+
+from packages.contracts.common import Environment, ServiceRef, Severity
 from packages.contracts.incidents import CauseCategory, Incident, IncidentStatus
 from packages.llm.fake import FakeLlmProvider, ScriptedReply
 from services.incident_agent.analyzer import AnalysisResult, IncidentAnalyzer, analyze_incident
@@ -35,12 +36,12 @@ def fake_llm() -> FakeLlmProvider:
 @pytest.fixture
 def sample_incident() -> Incident:
     """Return a sample incident for testing."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Incident(
         incident_id="inc-001",
         title="High 5xx rate in demo-api",
-        severity=Severity.HIGH,
-        service="demo-api",
+        severity=Severity.SEV2,
+        service=ServiceRef(name="demo-api", environment=Environment.DEVELOPMENT),
         status=IncidentStatus.OPEN,
         detected_at=now,
         opened_at=now,
@@ -62,7 +63,7 @@ async def test_analyzer_with_sufficient_evidence(fake_llm: FakeLlmProvider) -> N
         incident_id="inc-001",
         alert_description="5xx rate exceeded 5%",
         evidence=evidence,
-        severity=Severity.HIGH,
+        severity=Severity.SEV2,
     )
 
     assert suspected_cause is not None
@@ -95,7 +96,7 @@ async def test_analyzer_with_insufficient_evidence(fake_llm: FakeLlmProvider) ->
         incident_id="inc-002",
         alert_description="Alert triggered",
         evidence=evidence,
-        severity=Severity.LOW,
+        severity=Severity.SEV3,
     )
 
     assert suspected_cause is None
@@ -137,7 +138,7 @@ async def test_analyze_incident_handles_no_diagnosis(
         script=[ScriptedReply(content=_result_to_json(analysis))],
     )
 
-    evidence = {}
+    evidence: dict[str, object] = {}
 
     updated_incident = await analyze_incident(sample_incident, evidence, fake_llm_no_diag)
 

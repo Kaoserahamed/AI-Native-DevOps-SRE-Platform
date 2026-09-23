@@ -11,17 +11,17 @@ before introducing ML models. It focuses on:
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
+import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class AnomalyType(str, Enum):
+class AnomalyType(StrEnum):
     """Type of detected anomaly."""
 
     THRESHOLD_BREACH = "threshold_breach"
@@ -31,7 +31,7 @@ class AnomalyType(str, Enum):
     BASELINE_DEVIATION = "baseline_deviation"
 
 
-class AnomalySeverity(str, Enum):
+class AnomalySeverity(StrEnum):
     """Severity level of anomaly."""
 
     LOW = "low"
@@ -47,6 +47,7 @@ class TimeSeriesPoint:
     timestamp: datetime
     value: float
     labels: dict[str, str]
+    metric_name: str = ""
 
 
 @dataclass
@@ -236,9 +237,7 @@ class AnomalyDetector:
 
         return filtered_anomalies
 
-    def _check_threshold(
-        self, point: TimeSeriesPoint, config: ThresholdConfig
-    ) -> Anomaly | None:
+    def _check_threshold(self, point: TimeSeriesPoint, config: ThresholdConfig) -> Anomaly | None:
         """Check for threshold breaches."""
         if config.upper_threshold is not None and point.value > config.upper_threshold:
             deviation = (point.value - config.upper_threshold) / config.upper_threshold
@@ -294,7 +293,9 @@ class AnomalyDetector:
         z_score = abs(point.value - baseline.mean) / baseline.stddev
 
         if z_score > self.stddev_threshold:
-            deviation = abs(point.value - baseline.mean) / baseline.mean if baseline.mean != 0 else 0
+            deviation = (
+                abs(point.value - baseline.mean) / baseline.mean if baseline.mean != 0 else 0
+            )
             severity = self._calculate_severity(deviation)
 
             return Anomaly(
@@ -338,9 +339,7 @@ class AnomalyDetector:
         if fractional_change > self.rate_change_threshold:
             severity = self._calculate_severity(fractional_change)
             anomaly_type = (
-                AnomalyType.RATE_SPIKE
-                if current.value > previous.value
-                else AnomalyType.RATE_DROP
+                AnomalyType.RATE_SPIKE if current.value > previous.value else AnomalyType.RATE_DROP
             )
 
             return Anomaly(
@@ -367,12 +366,11 @@ class AnomalyDetector:
         """Calculate severity based on deviation magnitude."""
         if deviation >= 1.0:  # 100% or more
             return AnomalySeverity.CRITICAL
-        elif deviation >= 0.5:  # 50-100%
+        if deviation >= 0.5:  # 50-100%
             return AnomalySeverity.HIGH
-        elif deviation >= 0.2:  # 20-50%
+        if deviation >= 0.2:  # 20-50%
             return AnomalySeverity.MEDIUM
-        else:
-            return AnomalySeverity.LOW
+        return AnomalySeverity.LOW
 
     def _should_suppress(self, anomaly: Anomaly) -> bool:
         """Determine if anomaly should be suppressed due to recent similar detections.
@@ -400,9 +398,7 @@ class AnomalyDetector:
     def _cleanup_old_anomalies(self, current_time: datetime) -> None:
         """Remove anomalies outside correlation window."""
         cutoff = current_time - self.correlation_window
-        self._recent_anomalies = [
-            a for a in self._recent_anomalies if a.detected_at >= cutoff
-        ]
+        self._recent_anomalies = [a for a in self._recent_anomalies if a.detected_at >= cutoff]
 
     def correlate_anomalies(
         self, anomalies: list[Anomaly], window: timedelta | None = None

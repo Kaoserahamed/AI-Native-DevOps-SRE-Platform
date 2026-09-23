@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -59,7 +60,7 @@ class TestWorker:
         # Setup mock to return job once, then None
         call_count = 0
 
-        async def dequeue_side_effect(*args, **kwargs):
+        async def dequeue_side_effect(*args: object, **kwargs: object) -> Job | None:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -71,7 +72,7 @@ class TestWorker:
         # Create handler
         handler_called = False
 
-        async def test_handler(job: Job) -> dict:
+        async def test_handler(job: Job) -> dict[str, Any]:
             nonlocal handler_called
             handler_called = True
             return {"result": "success"}
@@ -81,7 +82,7 @@ class TestWorker:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Run worker briefly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.3)
             await worker.stop()
 
@@ -98,7 +99,7 @@ class TestWorker:
         """Test worker handles job failure."""
         call_count = 0
 
-        async def dequeue_side_effect(*args, **kwargs):
+        async def dequeue_side_effect(*args: object, **kwargs: object) -> Job | None:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -108,7 +109,7 @@ class TestWorker:
         mock_queue.dequeue.side_effect = dequeue_side_effect
 
         # Create failing handler
-        async def failing_handler(job: Job) -> dict:
+        async def failing_handler(job: Job) -> dict[str, Any]:
             raise ValueError("Test error")
 
         handlers = {"test_job": failing_handler}
@@ -116,7 +117,7 @@ class TestWorker:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Run worker briefly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.3)
             await worker.stop()
 
@@ -137,7 +138,7 @@ class TestWorker:
 
         call_count = 0
 
-        async def dequeue_side_effect(*args, **kwargs):
+        async def dequeue_side_effect(*args: object, **kwargs: object) -> Job | None:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -151,7 +152,7 @@ class TestWorker:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Run worker briefly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.3)
             await worker.stop()
 
@@ -171,9 +172,9 @@ class TestWorker:
         """Test worker respects max concurrent jobs limit."""
         worker_config.max_concurrent_jobs = 2
 
-        jobs_processed = []
+        jobs_processed: list[str] = []
 
-        async def slow_handler(job: Job) -> dict:
+        async def slow_handler(job: Job) -> dict[str, Any]:
             jobs_processed.append(job.job_id)
             await asyncio.sleep(0.2)
             return {}
@@ -195,7 +196,7 @@ class TestWorker:
 
         call_count = 0
 
-        async def dequeue_side_effect(*args, **kwargs):
+        async def dequeue_side_effect(*args: object, **kwargs: object) -> Job | None:
             nonlocal call_count
             if call_count < len(jobs):
                 job = jobs[call_count]
@@ -208,7 +209,7 @@ class TestWorker:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Run worker briefly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.5)
             await worker.stop()
 
@@ -226,7 +227,7 @@ class TestWorker:
         """Test worker waits for active jobs during shutdown."""
         job_completed = False
 
-        async def slow_handler(job: Job) -> dict:
+        async def slow_handler(job: Job) -> dict[str, Any]:
             nonlocal job_completed
             await asyncio.sleep(0.3)
             job_completed = True
@@ -237,7 +238,7 @@ class TestWorker:
         # Return job once
         call_count = 0
 
-        async def dequeue_side_effect(*args, **kwargs):
+        async def dequeue_side_effect(*args: object, **kwargs: object) -> Job | None:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -249,7 +250,7 @@ class TestWorker:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Start and stop quickly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.1)  # Let job start
             await worker.stop()
 
@@ -273,7 +274,7 @@ class TestWorker:
         assert status["running"] is False
 
         # Start worker
-        async def run_and_check():
+        async def run_and_check() -> None:
             await asyncio.sleep(0.1)
             status = worker.get_health_status()
             assert status["status"] == "healthy"
@@ -303,7 +304,7 @@ class TestWorkerStuckJobMonitor:
         worker = Worker(mock_queue, handlers, worker_config)
 
         # Run worker briefly
-        async def run_and_stop():
+        async def run_and_stop() -> None:
             await asyncio.sleep(0.5)
             await worker.stop()
 

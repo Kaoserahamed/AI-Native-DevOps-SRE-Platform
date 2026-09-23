@@ -44,6 +44,7 @@ dependencies = [
   "redis>=5.0,<6",
   "prometheus-client>=0.21,<1",
   "python-json-logger>=3.2,<4",
+  "structlog>=25.1,<26",
   "opentelemetry-api>=1.28,<2",
   "opentelemetry-sdk>=1.28,<2",
   "opentelemetry-exporter-otlp>=1.28,<2",
@@ -120,7 +121,11 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # CLI entry points and scripts report progress to stdout on purpose; library code must use logging.
 "scripts/*.py" = ["T201"]
-"services/**/routes/*.py" = ["B008"]  # FastAPI Requires Depends() in defaults
+# FastAPI declares dependency injection and path/query parameters in the endpoint signature, so
+# `Depends(...)` in a default is required, and a parameter may be part of the public contract without
+# the handler body reading it (it is forwarded to the router, not to the repository stub).
+"services/**/routes/*.py" = ["B008"]
+"services/**/app.py" = ["B008", "ARG001"]
 "tests/**/*.py" = ["ARG001", "ARG002"]
 
 [tool.ruff.lint.isort]
@@ -168,6 +173,11 @@ addopts = [
   "--strict-markers",
   "--strict-config",
   "-ra",
+  # Test packages in this repository share conventional directory names (`tests`), so the default
+  # `prepend` import mode lets one directory's `tests` package shadow another's. `importlib` derives
+  # every module name from its path, which is what keeps `tests/`, `infra/kubernetes/tests/` and
+  # `infra/terraform/tests/` collectable in a single run.
+  "--import-mode=importlib",
   # Coverage is measured, not merely configured: a documented threshold that no run enforces is worse than
   # no threshold at all. The measured packages are the ones the coverage configuration names.
   "--cov=packages",

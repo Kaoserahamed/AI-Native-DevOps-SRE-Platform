@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 import logging
 import signal
@@ -21,7 +21,9 @@ class WorkerConfig:
 
     poll_interval_seconds: float = 1.0
     visibility_timeout_seconds: int = 300
-    stuck_job_check_interval_seconds: int = 60
+    # A duration the worker passes straight to ``asyncio.sleep``, so it is a float like
+    # ``poll_interval_seconds``; a sub-second value is what the stuck-job monitor tests need.
+    stuck_job_check_interval_seconds: float = 60.0
     max_concurrent_jobs: int = 5
     graceful_shutdown_timeout_seconds: int = 30
 
@@ -35,7 +37,7 @@ class Worker:
     def __init__(
         self,
         queue: JobQueue,
-        handlers: dict[str, JobHandler],
+        handlers: Mapping[str, JobHandler],
         config: WorkerConfig | None = None,
     ) -> None:
         """Initialize worker.
@@ -45,7 +47,9 @@ class Worker:
         queue
             Job queue to process from
         handlers
-            Map of job_type -> handler function
+            Map of job_type -> handler function. A ``Mapping`` (rather than a mutable ``dict``) keeps
+            the parameter covariant in the handler's return type, so callers may register handlers
+            that return a narrower payload type without an unsafe cast.
         config
             Worker configuration
         """

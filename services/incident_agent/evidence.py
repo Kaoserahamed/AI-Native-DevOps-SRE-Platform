@@ -221,7 +221,7 @@ class EvidenceRetriever:
         return []
 
     async def _retrieve_traces(
-        self, service: str, start_time: datetime, end_time: datetime
+        self, incident_id: Identifier, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve trace evidence within constraints."""
         if not self._authorize(
@@ -232,7 +232,7 @@ class EvidenceRetriever:
                 "end": end_time.isoformat(),
                 "limit": self.constraints.max_trace_samples,
             },
-            incident_id=_INCIDENT_CONTEXT,
+            incident_id=incident_id,
         ):
             return []
 
@@ -248,13 +248,13 @@ class EvidenceRetriever:
         return []
 
     async def _retrieve_kubernetes_events(
-        self, service: str, start_time: datetime, end_time: datetime
+        self, incident_id: Identifier, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve Kubernetes event evidence."""
         if not self._authorize(
             AgentTool.KUBERNETES_INSPECT,
             {"workload": service, "namespace": "demo"},
-            incident_id=_INCIDENT_CONTEXT,
+            incident_id=incident_id,
         ):
             return []
 
@@ -269,13 +269,13 @@ class EvidenceRetriever:
         return []
 
     async def _retrieve_deployment_history(
-        self, service: str, start_time: datetime, end_time: datetime
+        self, incident_id: Identifier, service: str, start_time: datetime, end_time: datetime
     ) -> list[Evidence]:
         """Retrieve deployment history from GitHub or deployment system."""
         if not self._authorize(
             AgentTool.DEPLOYMENT_HISTORY,
             {"service": service, "limit": 10},
-            incident_id=_INCIDENT_CONTEXT,
+            incident_id=incident_id,
         ):
             return []
 

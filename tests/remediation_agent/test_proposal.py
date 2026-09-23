@@ -10,7 +10,6 @@ from services.remediation_agent.proposal import (
     BlastRadius,
     ProposalCategory,
     ProposalEngine,
-    RemediationProposal,
 )
 
 

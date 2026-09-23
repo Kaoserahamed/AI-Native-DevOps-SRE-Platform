@@ -1,369 +1,321 @@
-"""Unit tests for root cause correlation engine."""
+"""Unit tests for the root-cause correlation engine.
+
+The engine reasons over the *contract* evidence records (``packages.contracts.evidence``): a signal is a
+kind, an observation window and a bounded payload. These tests drive it with fixed timestamps so every
+confidence assertion is deterministic, and they pin the behaviour an on-call engineer depends on: a
+deployment inside the correlation window is suspicious, an old one is not, and an empty evidence set must
+produce an explicit uncertainty rather than a guess.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
-from datetime import datetime, timedelta, UTC
 
+from packages.contracts.common import Environment, ServiceRef
+from packages.contracts.evidence import Evidence, EvidenceCollector, EvidenceKind, TimeWindow
 from services.incident_agent.correlation import (
-    RootCauseCorrelator,
     CauseCategory,
-    SuspectedCause,
+    CorrelationResult,
+    RootCauseCorrelator,
 )
-from packages.contracts.evidence import Evidence, EvidenceKind, Collector
+
+pytestmark = pytest.mark.unit
+
+INCIDENT_ID = "INC-2026-0001"
+CORRELATION_ID = "b6f1c0de-0001-4a11-9f6e-0123456789ab"
+INCIDENT_START = datetime(2026, 9, 20, 10, 0, tzinfo=UTC)
+SERVICE = ServiceRef(name="demo-api", environment=Environment.PRODUCTION, namespace="demo")
+WINDOW = TimeWindow(start=INCIDENT_START - timedelta(minutes=30), end=INCIDENT_START)
 
 
-class TestRootCauseCorrelator:
-    """Test root cause correlation logic."""
+def signal(
+    evidence_id: str,
+    kind: EvidenceKind,
+    collected_at: datetime,
+    *,
+    summary: str = "Observed signal",
+    payload: dict[str, Any] | None = None,
+    collector: EvidenceCollector = EvidenceCollector.PLATFORM,
+) -> Evidence:
+    """Build one contract-valid evidence record for the correlator to reason over."""
+    return Evidence(
+        evidence_id=evidence_id,
+        kind=kind,
+        collector=collector,
+        collected_at=collected_at,
+        summary=summary,
+        service=SERVICE,
+        window=WINDOW,
+        payload=payload if payload is not None else {},
+        incident_id=INCIDENT_ID,
+        correlation_id=CORRELATION_ID,
+    )
 
-    def test_correlator_initialization(self):
-        """Test correlator initializes with defaults."""
-        correlator = RootCauseCorrelator()
-        
-        assert correlator.correlation_window == timedelta(minutes=15)
-        assert correlator.min_confidence == 0.3
 
-    def test_correlate_deployment_cause(self):
-        """Test correlation with recent deployment."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        deploy_time = incident_start - timedelta(minutes=2)
-        
-        # Create deployment evidence
-        deployment_evidence = Evidence(
-            evidence_id="EV-DEPLOY-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.DEPLOYMENT,
-            collector=Collector.GITHUB,
-            collected_at=deploy_time,
-            time_range_start=deploy_time,
-            time_range_end=deploy_time,
-            summary="Deployment of v1.2.4",
-            data={"version": "v1.2.4", "commit": "abc123"},
+def categories(result: CorrelationResult) -> list[CauseCategory]:
+    """Return the categories of the suspected causes, highest confidence first."""
+    return [cause.category for cause in result.suspected_causes]
+
+
+def test_correlator_defaults_match_the_documented_window_and_threshold() -> None:
+    """The defaults are part of the contract: 15 minutes and a 0.3 confidence floor."""
+    correlator = RootCauseCorrelator()
+
+    assert correlator.correlation_window == timedelta(minutes=15)
+    assert correlator.min_confidence == 0.3
+
+
+def test_recent_deployment_is_correlated_with_high_confidence() -> None:
+    """A deployment two minutes before detection is the most likely trigger."""
+    correlator = RootCauseCorrelator()
+
+    deployment = signal(
+        "EVD-2026-0001",
+        EvidenceKind.DEPLOYMENT_EVENT,
+        INCIDENT_START - timedelta(minutes=2),
+        summary="Deployment of demo-api v1.2.4",
+        payload={"version": "v1.2.4", "commit": "4a1b2c3d"},
+        collector=EvidenceCollector.GITHUB,
+    )
+
+    result = correlator.correlate([deployment], INCIDENT_START)
+
+    assert CauseCategory.DEPLOYMENT in categories(result)
+    deployment_cause = next(
+        cause for cause in result.suspected_causes if cause.category is CauseCategory.DEPLOYMENT
+    )
+    # 0.9 - (120 s / 900 s) = 0.7666...
+    assert deployment_cause.confidence > 0.7
+    assert deployment_cause.evidence_ids == ["EVD-2026-0001"]
+
+
+def test_deployment_outside_the_correlation_window_is_not_correlated() -> None:
+    """A release an hour before detection is history, not a cause."""
+    correlator = RootCauseCorrelator(correlation_window=timedelta(minutes=5))
+
+    deployment = signal(
+        "EVD-2026-0002",
+        EvidenceKind.DEPLOYMENT_EVENT,
+        INCIDENT_START - timedelta(hours=1),
+        summary="Old deployment",
+        collector=EvidenceCollector.GITHUB,
+    )
+
+    result = correlator.correlate([deployment], INCIDENT_START)
+
+    assert CauseCategory.DEPLOYMENT not in categories(result)
+
+
+def test_pod_restarts_are_correlated_as_an_infrastructure_cause() -> None:
+    """Restarts reported by the Kubernetes collector point at the platform, not the application."""
+    correlator = RootCauseCorrelator()
+
+    restart = signal(
+        "EVD-2026-0003",
+        EvidenceKind.KUBERNETES_OBJECT,
+        INCIDENT_START - timedelta(minutes=1),
+        summary="Pod restarts detected",
+        payload={"restart_count": 5, "reason": "CrashLoopBackOff"},
+        collector=EvidenceCollector.KUBERNETES,
+    )
+
+    result = correlator.correlate([restart], INCIDENT_START)
+
+    assert CauseCategory.INFRASTRUCTURE in categories(result)
+
+
+def test_database_errors_are_correlated() -> None:
+    """A connection-pool timeout in the logs is a database cause."""
+    correlator = RootCauseCorrelator()
+
+    log = signal(
+        "EVD-2026-0004",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(seconds=30),
+        summary="Database connection timeout",
+        payload={"logs": ["ERROR: database connection timeout", "pg pool exhausted"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
+
+    result = correlator.correlate([log], INCIDENT_START)
+
+    assert CauseCategory.DATABASE in categories(result)
+
+
+def test_cache_errors_are_correlated() -> None:
+    """A refused Redis connection is a cache cause."""
+    correlator = RootCauseCorrelator()
+
+    log = signal(
+        "EVD-2026-0005",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(seconds=45),
+        summary="Redis connection refused",
+        payload={"logs": ["ERROR: redis connection refused", "cache unavailable"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
+
+    result = correlator.correlate([log], INCIDENT_START)
+
+    assert CauseCategory.CACHE in categories(result)
+
+
+def test_application_errors_are_correlated() -> None:
+    """An unhandled exception is an application cause."""
+    correlator = RootCauseCorrelator()
+
+    log = signal(
+        "EVD-2026-0006",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(minutes=1),
+        summary="Unhandled exception in request handler",
+        payload={"logs": ["Traceback (most recent call last)", "ValueError: failed to parse body"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
+
+    result = correlator.correlate([log], INCIDENT_START)
+
+    assert CauseCategory.APPLICATION_ERROR in categories(result)
+
+
+def test_resource_exhaustion_is_correlated() -> None:
+    """An OOM kill is resource exhaustion, whether it arrives as an event or a metric."""
+    correlator = RootCauseCorrelator()
+
+    event = signal(
+        "EVD-2026-0007",
+        EvidenceKind.KUBERNETES_OBJECT,
+        INCIDENT_START - timedelta(seconds=20),
+        summary="OOMKilled",
+        payload={"reason": "OOMKilled", "memory_limit": "512Mi"},
+        collector=EvidenceCollector.KUBERNETES,
+    )
+
+    result = correlator.correlate([event], INCIDENT_START)
+
+    assert CauseCategory.RESOURCE_EXHAUSTION in categories(result)
+
+
+def test_suspected_causes_are_sorted_by_descending_confidence() -> None:
+    """The strongest hypothesis is always first, so a caller can act on the head of the list."""
+    correlator = RootCauseCorrelator()
+
+    recent_deployment = signal(
+        "EVD-2026-0008",
+        EvidenceKind.DEPLOYMENT_EVENT,
+        INCIDENT_START - timedelta(minutes=1),
+        summary="Recent deployment",
+        collector=EvidenceCollector.GITHUB,
+    )
+    older_logs = signal(
+        "EVD-2026-0009",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(minutes=10),
+        summary="Application errors",
+        payload={"logs": ["error"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
+
+    result = correlator.correlate([recent_deployment, older_logs], INCIDENT_START)
+
+    confidences = [cause.confidence for cause in result.suspected_causes]
+    assert confidences == sorted(confidences, reverse=True)
+    assert result.suspected_causes[0].category is CauseCategory.DEPLOYMENT
+
+
+def test_evidence_timeline_is_chronological() -> None:
+    """The timeline is the record a reviewer reads, so it must be oldest first."""
+    correlator = RootCauseCorrelator()
+
+    late = signal(
+        "EVD-2026-0010",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START,
+        payload={"logs": ["error"]},
+    )
+    early = signal(
+        "EVD-2026-0011",
+        EvidenceKind.DEPLOYMENT_EVENT,
+        INCIDENT_START - timedelta(minutes=5),
+    )
+
+    result = correlator.correlate([late, early], INCIDENT_START)
+
+    timestamps = [entry[0] for entry in result.evidence_timeline]
+    assert timestamps == sorted(timestamps)
+    assert [entry[1] for entry in result.evidence_timeline] == ["EVD-2026-0011", "EVD-2026-0010"]
+
+
+def test_confidence_factors_are_bounded_probabilities() -> None:
+    """Every reported factor is a probability in [0, 1], never a raw count."""
+    correlator = RootCauseCorrelator()
+
+    evidence_items = [
+        signal(
+            f"EVD-2026-10{index:02d}",
+            kind,
+            INCIDENT_START - timedelta(minutes=index + 1),
+            payload={"logs": ["error"]},
         )
-        
-        result = correlator.correlate([deployment_evidence], incident_start)
-        
-        assert len(result.suspected_causes) >= 1
-        deployment_causes = [c for c in result.suspected_causes if c.category == CauseCategory.DEPLOYMENT]
-        assert len(deployment_causes) >= 1
-        assert deployment_causes[0].confidence > 0.7  # Recent deployment = high confidence
+        for index, kind in enumerate([EvidenceKind.LOG_EXCERPT, EvidenceKind.METRIC_SERIES])
+    ]
 
-    def test_correlate_pod_restart_cause(self):
-        """Test correlation with pod restarts."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        restart_time = incident_start - timedelta(minutes=1)
-        
-        # Create pod restart evidence
-        k8s_evidence = Evidence(
-            evidence_id="EV-K8S-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.KUBERNETES,
-            collector=Collector.KUBECTL,
-            collected_at=restart_time,
-            time_range_start=restart_time,
-            time_range_end=restart_time,
-            summary="Pod restarts detected",
-            data={"restart_count": 5, "reason": "CrashLoopBackOff"},
-        )
-        
-        result = correlator.correlate([k8s_evidence], incident_start)
-        
-        infrastructure_causes = [c for c in result.suspected_causes if c.category == CauseCategory.INFRASTRUCTURE]
-        assert len(infrastructure_causes) >= 1
+    result = correlator.correlate(evidence_items, INCIDENT_START)
 
-    def test_correlate_database_errors(self):
-        """Test correlation with database errors."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        error_time = incident_start - timedelta(seconds=30)
-        
-        # Create log evidence with database errors
-        log_evidence = Evidence(
-            evidence_id="EV-LOG-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=error_time,
-            time_range_start=error_time,
-            time_range_end=error_time,
-            summary="Database connection timeout",
-            data={"logs": ["ERROR: database connection timeout", "PostgreSQL connection pool exhausted"]},
-        )
-        
-        result = correlator.correlate([log_evidence], incident_start)
-        
-        db_causes = [c for c in result.suspected_causes if c.category == CauseCategory.DATABASE]
-        assert len(db_causes) >= 1
+    assert {"evidence_count", "evidence_diversity", "cause_agreement"} <= set(
+        result.confidence_factors
+    )
+    assert all(0.0 <= value <= 1.0 for value in result.confidence_factors.values())
 
-    def test_correlate_redis_errors(self):
-        """Test correlation with Redis errors."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        error_time = incident_start - timedelta(seconds=45)
-        
-        # Create log evidence with Redis errors
-        log_evidence = Evidence(
-            evidence_id="EV-LOG-002",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=error_time,
-            time_range_start=error_time,
-            time_range_end=error_time,
-            summary="Redis connection refused",
-            data={"logs": ["ERROR: Redis connection refused", "Cache unavailable"]},
-        )
-        
-        result = correlator.correlate([log_evidence], incident_start)
-        
-        cache_causes = [c for c in result.suspected_causes if c.category == CauseCategory.CACHE]
-        assert len(cache_causes) >= 1
 
-    def test_correlate_application_errors(self):
-        """Test correlation with application errors."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        error_time = incident_start - timedelta(minutes=1)
-        
-        # Create log evidence with application errors
-        log_evidence = Evidence(
-            evidence_id="EV-LOG-003",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=error_time,
-            time_range_start=error_time,
-            time_range_end=error_time,
-            summary="Application exception",
-            data={"logs": ["ERROR: NullPointerException", "Traceback: ...", "Failed to process request"]},
-        )
-        
-        result = correlator.correlate([log_evidence], incident_start)
-        
-        app_causes = [c for c in result.suspected_causes if c.category == CauseCategory.APPLICATION_ERROR]
-        assert len(app_causes) >= 1
+def test_weak_signal_is_reported_as_low_confidence() -> None:
+    """A single weak signal is a hypothesis, and the result has to say so."""
+    correlator = RootCauseCorrelator(min_confidence=0.0)
 
-    def test_correlate_resource_exhaustion(self):
-        """Test correlation with resource exhaustion."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        oom_time = incident_start - timedelta(seconds=20)
-        
-        # Create evidence with OOM
-        k8s_evidence = Evidence(
-            evidence_id="EV-K8S-002",
-            incident_id="INC-001",
-            kind=EvidenceKind.KUBERNETES,
-            collector=Collector.KUBECTL,
-            collected_at=oom_time,
-            time_range_start=oom_time,
-            time_range_end=oom_time,
-            summary="OOMKilled",
-            data={"reason": "OOMKilled", "memory_limit": "512Mi"},
-        )
-        
-        result = correlator.correlate([k8s_evidence], incident_start)
-        
-        resource_causes = [c for c in result.suspected_causes if c.category == CauseCategory.RESOURCE_EXHAUSTION]
-        assert len(resource_causes) >= 1
+    weak_signal = signal(
+        "EVD-2026-0012",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(minutes=1),
+        summary="One application error",
+        payload={"logs": ["error"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
 
-    def test_multiple_causes_sorted_by_confidence(self):
-        """Test that multiple causes are sorted by confidence."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        # Create multiple evidence items
-        deployment_evidence = Evidence(
-            evidence_id="EV-DEPLOY-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.DEPLOYMENT,
-            collector=Collector.GITHUB,
-            collected_at=incident_start - timedelta(minutes=1),  # Very recent
-            time_range_start=incident_start - timedelta(minutes=1),
-            time_range_end=incident_start - timedelta(minutes=1),
-            summary="Recent deployment",
-            data={},
-        )
-        
-        log_evidence = Evidence(
-            evidence_id="EV-LOG-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=incident_start - timedelta(minutes=10),  # Less recent
-            time_range_start=incident_start - timedelta(minutes=10),
-            time_range_end=incident_start - timedelta(minutes=10),
-            summary="Some errors",
-            data={"logs": ["error"]},
-        )
-        
-        result = correlator.correlate([deployment_evidence, log_evidence], incident_start)
-        
-        # Should have multiple causes
-        assert len(result.suspected_causes) >= 1
-        
-        # Should be sorted by confidence (highest first)
-        confidences = [c.confidence for c in result.suspected_causes]
-        assert confidences == sorted(confidences, reverse=True)
+    result = correlator.correlate([weak_signal], INCIDENT_START)
 
-    def test_min_confidence_filtering(self):
-        """Test that causes below min confidence are filtered."""
-        correlator = RootCauseCorrelator(min_confidence=0.8)
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        # Create evidence that would generate low confidence
-        old_log = Evidence(
-            evidence_id="EV-LOG-001",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=incident_start - timedelta(hours=1),  # Old evidence
-            time_range_start=incident_start - timedelta(hours=1),
-            time_range_end=incident_start - timedelta(hours=1),
-            summary="Old error",
-            data={"logs": ["error"]},
-        )
-        
-        result = correlator.correlate([old_log], incident_start)
-        
-        # All returned causes should meet minimum confidence
-        assert all(c.confidence >= 0.8 for c in result.suspected_causes)
+    assert [cause.confidence for cause in result.suspected_causes] == [pytest.approx(0.4)]
+    assert "Low confidence in all suspected causes" in result.unresolved_uncertainties
 
-    def test_evidence_timeline_construction(self):
-        """Test that evidence timeline is built correctly."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        evidence_items = [
-            Evidence(
-                evidence_id=f"EV-{i}",
-                incident_id="INC-001",
-                kind=EvidenceKind.LOG,
-                collector=Collector.LOKI,
-                collected_at=incident_start - timedelta(minutes=i),
-                time_range_start=incident_start - timedelta(minutes=i),
-                time_range_end=incident_start - timedelta(minutes=i),
-                summary=f"Event {i}",
-                data={},
-            )
-            for i in range(5)
-        ]
-        
-        result = correlator.correlate(evidence_items, incident_start)
-        
-        # Timeline should be sorted chronologically
-        timeline = result.evidence_timeline
-        assert len(timeline) == 5
-        
-        # Check chronological order (oldest first)
-        timestamps = [t[0] for t in timeline]
-        assert timestamps == sorted(timestamps)
 
-    def test_uncertainty_identification_no_evidence(self):
-        """Test uncertainty is flagged when evidence is insufficient."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        # No evidence
-        result = correlator.correlate([], incident_start)
-        
-        assert "Insufficient evidence" in result.unresolved_uncertainties
+def test_evidence_older_than_the_window_does_not_produce_a_cause() -> None:
+    """A signal from two hours ago cannot explain an incident detected now."""
+    correlator = RootCauseCorrelator(min_confidence=0.0)
 
-    def test_uncertainty_identification_low_confidence(self):
-        """Test uncertainty is flagged when all causes have low confidence."""
-        correlator = RootCauseCorrelator(min_confidence=0.0)  # Don't filter
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        # Create weak evidence (old)
-        old_evidence = Evidence(
-            evidence_id="EV-OLD",
-            incident_id="INC-001",
-            kind=EvidenceKind.LOG,
-            collector=Collector.LOKI,
-            collected_at=incident_start - timedelta(hours=2),
-            time_range_start=incident_start - timedelta(hours=2),
-            time_range_end=incident_start - timedelta(hours=2),
-            summary="Old event",
-            data={"logs": ["something"]},
-        )
-        
-        result = correlator.correlate([old_evidence], incident_start)
-        
-        # Should flag low confidence
-        assert any("Low confidence" in u for u in result.unresolved_uncertainties)
+    stale_signal = signal(
+        "EVD-2026-0013",
+        EvidenceKind.LOG_EXCERPT,
+        INCIDENT_START - timedelta(hours=2),
+        summary="Old application error",
+        payload={"logs": ["error"]},
+        collector=EvidenceCollector.OPENTELEMETRY_LOGS,
+    )
 
-    def test_confidence_factors_calculation(self):
-        """Test confidence factors are calculated."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        evidence_items = [
-            Evidence(
-                evidence_id=f"EV-{kind.value}",
-                incident_id="INC-001",
-                kind=kind,
-                collector=Collector.LOKI,
-                collected_at=incident_start,
-                time_range_start=incident_start,
-                time_range_end=incident_start,
-                summary="Event",
-                data={},
-            )
-            for kind in [EvidenceKind.LOG, EvidenceKind.METRIC, EvidenceKind.TRACE]
-        ]
-        
-        result = correlator.correlate(evidence_items, incident_start)
-        
-        factors = result.confidence_factors
-        assert "evidence_count" in factors
-        assert "evidence_diversity" in factors
-        assert all(0 <= v <= 1 for v in factors.values())
+    result = correlator.correlate([stale_signal], INCIDENT_START)
 
-    def test_correlation_window_enforcement(self):
-        """Test events outside correlation window are not correlated."""
-        correlator = RootCauseCorrelator(correlation_window=timedelta(minutes=5))
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        # Evidence outside window
-        old_deployment = Evidence(
-            evidence_id="EV-OLD-DEPLOY",
-            incident_id="INC-001",
-            kind=EvidenceKind.DEPLOYMENT,
-            collector=Collector.GITHUB,
-            collected_at=incident_start - timedelta(hours=1),  # Way before window
-            time_range_start=incident_start - timedelta(hours=1),
-            time_range_end=incident_start - timedelta(hours=1),
-            summary="Old deployment",
-            data={},
-        )
-        
-        result = correlator.correlate([old_deployment], incident_start)
-        
-        # Should not find deployment correlation (outside window)
-        deployment_causes = [c for c in result.suspected_causes if c.category == CauseCategory.DEPLOYMENT]
-        assert len(deployment_causes) == 0
+    assert result.suspected_causes == []
+    assert "Insufficient evidence to determine root cause" in result.unresolved_uncertainties
 
-    def test_empty_evidence_returns_uncertainties(self):
-        """Test that empty evidence list returns appropriate uncertainties."""
-        correlator = RootCauseCorrelator()
-        
-        incident_start = datetime.now(tz=UTC)
-        
-        result = correlator.correlate([], incident_start)
-        
-        assert len(result.suspected_causes) == 0
-        assert len(result.unresolved_uncertainties) > 0
-        assert "Insufficient evidence" in result.unresolved_uncertainties
+
+def test_empty_evidence_reports_insufficient_evidence() -> None:
+    """With nothing to reason over, the engine must say so rather than invent a cause."""
+    correlator = RootCauseCorrelator()
+
+    result = correlator.correlate([], INCIDENT_START)
+
+    assert result.suspected_causes == []
+    assert "Insufficient evidence to determine root cause" in result.unresolved_uncertainties
+    assert "No deployment history available" in result.unresolved_uncertainties
+    assert "Limited log evidence" in result.unresolved_uncertainties

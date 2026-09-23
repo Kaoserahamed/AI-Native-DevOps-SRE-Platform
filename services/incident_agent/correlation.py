@@ -12,10 +12,10 @@ Correlates evidence from multiple sources to identify probable root causes:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
+import logging
 from typing import Any
 
 from packages.contracts.evidence import Evidence, EvidenceKind
@@ -23,7 +23,7 @@ from packages.contracts.evidence import Evidence, EvidenceKind
 logger = logging.getLogger(__name__)
 
 
-class CauseCategory(str, Enum):
+class CauseCategory(StrEnum):
     """Category of suspected root cause."""
 
     DEPLOYMENT = "deployment"
@@ -121,44 +121,32 @@ class RootCauseCorrelator:
         uncertainties: list[str] = []
 
         # Pattern 1: Recent deployment correlation
-        deployment_cause = self._correlate_deployment(
-            evidence_by_kind, incident_start, timeline
-        )
+        deployment_cause = self._correlate_deployment(evidence_by_kind, incident_start)
         if deployment_cause:
             suspected_causes.append(deployment_cause)
 
         # Pattern 2: Pod restart correlation
-        pod_restart_cause = self._correlate_pod_restarts(
-            evidence_by_kind, incident_start, timeline
-        )
+        pod_restart_cause = self._correlate_pod_restarts(evidence_by_kind, incident_start)
         if pod_restart_cause:
             suspected_causes.append(pod_restart_cause)
 
         # Pattern 3: Database error correlation
-        database_cause = self._correlate_database_errors(
-            evidence_by_kind, incident_start, timeline
-        )
+        database_cause = self._correlate_database_errors(evidence_by_kind, incident_start)
         if database_cause:
             suspected_causes.append(database_cause)
 
         # Pattern 4: Redis error correlation
-        redis_cause = self._correlate_redis_errors(
-            evidence_by_kind, incident_start, timeline
-        )
+        redis_cause = self._correlate_redis_errors(evidence_by_kind, incident_start)
         if redis_cause:
             suspected_causes.append(redis_cause)
 
         # Pattern 5: Application error correlation
-        app_error_cause = self._correlate_application_errors(
-            evidence_by_kind, incident_start, timeline
-        )
+        app_error_cause = self._correlate_application_errors(evidence_by_kind, incident_start)
         if app_error_cause:
             suspected_causes.append(app_error_cause)
 
         # Pattern 6: Resource exhaustion
-        resource_cause = self._correlate_resource_exhaustion(
-            evidence_by_kind, incident_start, timeline
-        )
+        resource_cause = self._correlate_resource_exhaustion(evidence_by_kind, incident_start)
         if resource_cause:
             suspected_causes.append(resource_cause)
 
@@ -179,10 +167,10 @@ class RootCauseCorrelator:
         elif all(cause.confidence < 0.7 for cause in suspected_causes):
             uncertainties.append("Low confidence in all suspected causes")
 
-        if not evidence_by_kind.get(EvidenceKind.DEPLOYMENT):
+        if not evidence_by_kind.get(EvidenceKind.DEPLOYMENT_EVENT):
             uncertainties.append("No deployment history available")
 
-        if not evidence_by_kind.get(EvidenceKind.LOG):
+        if not evidence_by_kind.get(EvidenceKind.LOG_EXCERPT):
             uncertainties.append("Limited log evidence")
 
         logger.info(
@@ -198,9 +186,7 @@ class RootCauseCorrelator:
             unresolved_uncertainties=uncertainties,
         )
 
-    def _build_timeline(
-        self, evidence_list: list[Evidence]
-    ) -> list[tuple[datetime, str, str]]:
+    def _build_timeline(self, evidence_list: list[Evidence]) -> list[tuple[datetime, str, str]]:
         """Build chronological timeline of evidence."""
         timeline = [
             (
@@ -228,10 +214,9 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with recent deployments."""
-        deployments = evidence_by_kind.get(EvidenceKind.DEPLOYMENT, [])
+        deployments = evidence_by_kind.get(EvidenceKind.DEPLOYMENT_EVENT, [])
         if not deployments:
             return None
 
@@ -274,17 +259,18 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with pod restarts."""
-        k8s_evidence = evidence_by_kind.get(EvidenceKind.KUBERNETES, [])
+        k8s_evidence = evidence_by_kind.get(EvidenceKind.KUBERNETES_OBJECT, [])
         if not k8s_evidence:
             return None
 
         # Look for restart patterns in data
         restart_evidence = [
-            ev for ev in k8s_evidence
-            if ev.data and ("restart" in str(ev.data).lower() or "crashloop" in str(ev.data).lower())
+            ev
+            for ev in k8s_evidence
+            if ev.payload
+            and ("restart" in str(ev.payload).lower() or "crashloop" in str(ev.payload).lower())
         ]
 
         if not restart_evidence:
@@ -293,7 +279,8 @@ class RootCauseCorrelator:
         recent_restarts = [
             ev
             for ev in restart_evidence
-            if abs((ev.collected_at - incident_start).total_seconds()) <= self.correlation_window.total_seconds()
+            if abs((ev.collected_at - incident_start).total_seconds())
+            <= self.correlation_window.total_seconds()
         ]
 
         if not recent_restarts:
@@ -319,19 +306,27 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with database errors."""
-        logs = evidence_by_kind.get(EvidenceKind.LOG, [])
+        logs = evidence_by_kind.get(EvidenceKind.LOG_EXCERPT, [])
         if not logs:
             return None
 
         # Look for database-related errors
         db_errors = [
-            log for log in logs
-            if log.data and any(
-                keyword in str(log.data).lower()
-                for keyword in ["database", "postgres", "pg", "connection pool", "timeout", "deadlock"]
+            log
+            for log in logs
+            if log.payload
+            and any(
+                keyword in str(log.payload).lower()
+                for keyword in [
+                    "database",
+                    "postgres",
+                    "pg",
+                    "connection pool",
+                    "timeout",
+                    "deadlock",
+                ]
             )
         ]
 
@@ -341,7 +336,8 @@ class RootCauseCorrelator:
         recent_db_errors = [
             ev
             for ev in db_errors
-            if abs((ev.collected_at - incident_start).total_seconds()) <= self.correlation_window.total_seconds()
+            if abs((ev.collected_at - incident_start).total_seconds())
+            <= self.correlation_window.total_seconds()
         ]
 
         if not recent_db_errors:
@@ -367,18 +363,19 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with Redis errors."""
-        logs = evidence_by_kind.get(EvidenceKind.LOG, [])
+        logs = evidence_by_kind.get(EvidenceKind.LOG_EXCERPT, [])
         if not logs:
             return None
 
         # Look for Redis-related errors
         redis_errors = [
-            log for log in logs
-            if log.data and any(
-                keyword in str(log.data).lower()
+            log
+            for log in logs
+            if log.payload
+            and any(
+                keyword in str(log.payload).lower()
                 for keyword in ["redis", "cache", "connection refused", "timeout"]
             )
         ]
@@ -389,7 +386,8 @@ class RootCauseCorrelator:
         recent_redis_errors = [
             ev
             for ev in redis_errors
-            if abs((ev.collected_at - incident_start).total_seconds()) <= self.correlation_window.total_seconds()
+            if abs((ev.collected_at - incident_start).total_seconds())
+            <= self.correlation_window.total_seconds()
         ]
 
         if not recent_redis_errors:
@@ -415,18 +413,19 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with application errors."""
-        logs = evidence_by_kind.get(EvidenceKind.LOG, [])
+        logs = evidence_by_kind.get(EvidenceKind.LOG_EXCERPT, [])
         if not logs:
             return None
 
         # Look for application exceptions/errors
         app_errors = [
-            log for log in logs
-            if log.data and any(
-                keyword in str(log.data).lower()
+            log
+            for log in logs
+            if log.payload
+            and any(
+                keyword in str(log.payload).lower()
                 for keyword in ["exception", "error", "traceback", "failed", "panic"]
             )
         ]
@@ -437,7 +436,8 @@ class RootCauseCorrelator:
         recent_app_errors = [
             ev
             for ev in app_errors
-            if abs((ev.collected_at - incident_start).total_seconds()) <= self.correlation_window.total_seconds()
+            if abs((ev.collected_at - incident_start).total_seconds())
+            <= self.correlation_window.total_seconds()
         ]
 
         if not recent_app_errors:
@@ -463,11 +463,10 @@ class RootCauseCorrelator:
         self,
         evidence_by_kind: dict[EvidenceKind, list[Evidence]],
         incident_start: datetime,
-        timeline: list[tuple[datetime, str, str]],
     ) -> SuspectedCause | None:
         """Correlate incident with resource exhaustion."""
-        metrics = evidence_by_kind.get(EvidenceKind.METRIC, [])
-        k8s_evidence = evidence_by_kind.get(EvidenceKind.KUBERNETES, [])
+        metrics = evidence_by_kind.get(EvidenceKind.METRIC_SERIES, [])
+        k8s_evidence = evidence_by_kind.get(EvidenceKind.KUBERNETES_OBJECT, [])
 
         all_resource_evidence = metrics + k8s_evidence
 
@@ -476,9 +475,11 @@ class RootCauseCorrelator:
 
         # Look for OOM, high CPU, high memory patterns
         resource_issues = [
-            ev for ev in all_resource_evidence
-            if ev.data and any(
-                keyword in str(ev.data).lower()
+            ev
+            for ev in all_resource_evidence
+            if ev.payload
+            and any(
+                keyword in str(ev.payload).lower()
                 for keyword in ["oom", "memory", "cpu", "disk", "throttle", "limit"]
             )
         ]
@@ -489,7 +490,8 @@ class RootCauseCorrelator:
         recent_resource_issues = [
             ev
             for ev in resource_issues
-            if abs((ev.collected_at - incident_start).total_seconds()) <= self.correlation_window.total_seconds()
+            if abs((ev.collected_at - incident_start).total_seconds())
+            <= self.correlation_window.total_seconds()
         ]
 
         if not recent_resource_issues:
@@ -517,7 +519,7 @@ class RootCauseCorrelator:
         """Calculate factors that contribute to overall confidence."""
         factors = {
             "evidence_count": min(1.0, len(evidence_list) / 10),
-            "evidence_diversity": len(set(ev.kind for ev in evidence_list)) / len(EvidenceKind),
+            "evidence_diversity": len({ev.kind for ev in evidence_list}) / len(EvidenceKind),
             "cause_agreement": len(suspected_causes) / 5 if suspected_causes else 0.0,
         }
 

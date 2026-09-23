@@ -326,15 +326,14 @@ async def analyze_incident(
         correlation_id=correlation_id,
     )
 
-    if suspected_cause is not None:
-        # Create updated incident with new data
-        updated_incident = incident.model_copy(
-            update={
-                "suspected_causes": [suspected_cause],
-                "confidence": Confidence(confidence),
-                "status": IncidentStatus.INVESTIGATING,
-            }
-        )
-        return updated_incident
+    if suspected_cause is None:
+        return incident
 
-    return incident
+    # Create updated incident with new data
+    return incident.model_copy(
+        update={
+            "suspected_causes": [suspected_cause],
+            "confidence": Confidence(confidence),
+            "status": IncidentStatus.INVESTIGATING,
+        }
+    )

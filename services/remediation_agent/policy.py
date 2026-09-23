@@ -6,9 +6,9 @@ requiring approval for high-risk actions, and enforcing deny-by-default.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from enum import StrEnum
+import logging
 
 from services.remediation_agent.proposal import BlastRadius, ProposalCategory, RemediationProposal
 
@@ -127,8 +127,7 @@ class RemediationPolicy:
         # Rule 4: Maximum automated scope
         if self._compare_blast_radius(proposal.blast_radius, self.max_automated_scope) > 0:
             violations.append(
-                f"Blast radius {proposal.blast_radius} exceeds maximum "
-                f"{self.max_automated_scope}"
+                f"Blast radius {proposal.blast_radius} exceeds maximum {self.max_automated_scope}"
             )
 
         # Rule 5: High-risk actions require additional approval
@@ -136,10 +135,7 @@ class RemediationPolicy:
             violations.append("High-risk actions require additional human approval")
 
         # Rule 6: Production rollbacks always require approval
-        if (
-            self.environment == "production"
-            and proposal.category == ProposalCategory.ROLLBACK
-        ):
+        if self.environment == "production" and proposal.category == ProposalCategory.ROLLBACK:
             violations.append("Production rollbacks require explicit approval")
 
         # Determine decision based on violations and risk
@@ -178,12 +174,11 @@ class RemediationPolicy:
         # Assess by blast radius
         if proposal.blast_radius in {BlastRadius.CLUSTER, BlastRadius.MULTI_CLUSTER}:
             return RiskLevel.CRITICAL
-        elif proposal.blast_radius == BlastRadius.NAMESPACE:
+        if proposal.blast_radius == BlastRadius.NAMESPACE:
             return RiskLevel.HIGH
-        elif proposal.blast_radius == BlastRadius.SERVICE:
+        if proposal.blast_radius == BlastRadius.SERVICE:
             return RiskLevel.MEDIUM
-        else:
-            return RiskLevel.LOW
+        return RiskLevel.LOW
 
     def _compare_blast_radius(self, actual: BlastRadius, limit: BlastRadius) -> int:
         """Compare blast radius levels. Returns: -1 (less), 0 (equal), 1 (greater)."""
@@ -199,10 +194,9 @@ class RemediationPolicy:
 
         if actual_idx < limit_idx:
             return -1
-        elif actual_idx == limit_idx:
+        if actual_idx == limit_idx:
             return 0
-        else:
-            return 1
+        return 1
 
     def _make_decision(
         self, proposal: RemediationProposal, risk_level: RiskLevel, violations: list[str]

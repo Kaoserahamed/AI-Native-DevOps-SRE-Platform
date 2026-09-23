@@ -1,4 +1,5 @@
 """Create terraform tests __init__.py."""
+
 from pathlib import Path
 
 content = '''"""Fast-tier policy checks for the Terraform configuration.

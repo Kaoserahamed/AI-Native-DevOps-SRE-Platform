@@ -153,9 +153,10 @@ class TestRightsizingRecommendations:
         assert len(rec.validation_criteria) > 0
         assert rec.confidence >= cost_recommender.min_confidence
 
-        # Check current and proposed state
+        # Check current and proposed state. The proposal state is a JSON mapping, so the numbers are
+        # compared as floats rather than relying on the declared union of scalar values.
         assert rec.current_state["requested"] == overprovisioned_cpu.requested
-        assert rec.proposed_state["requested"] < overprovisioned_cpu.requested
+        assert float(rec.proposed_state["requested"]) < overprovisioned_cpu.requested
 
     def test_generate_memory_rightsizing(
         self, cost_recommender: CostRecommender, overprovisioned_memory: ResourceUtilization
@@ -201,7 +202,7 @@ class TestIdleCleanupRecommendations:
         assert len(rec.assumptions) > 0
         assert len(rec.implementation_steps) > 0
         assert (
-            "delete" in rec.proposed_state.get("action", "").lower()
+            "delete" in str(rec.proposed_state.get("action", "")).lower()
             or "archive" in rec.description.lower()
         )
 

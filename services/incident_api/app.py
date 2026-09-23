@@ -6,20 +6,27 @@ and state transitions.
 
 from __future__ import annotations
 
-import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from datetime import UTC, datetime
+import os
 
-from fastapi import FastAPI, HTTPException, status, Depends, Query
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+from pydantic import BaseModel
 
 from packages.contracts.audit import ActorType, AuditEntry
-from packages.contracts.common import Identifier, PrincipalId
+from packages.contracts.common import Identifier
 from packages.contracts.evidence import Evidence
 from packages.contracts.incidents import Incident, IncidentStatus
-from packages.observability.logging_config import configure_logging, get_logger, bind_correlation_id, unbind_context
-from packages.persistence.repositories import AuditRepository, EvidenceRepository, IncidentRepository
-from datetime import UTC, datetime
+from packages.observability.logging_config import (
+    configure_logging,
+    get_logger,
+)
+from packages.persistence.repositories import (
+    AuditRepository,
+    EvidenceRepository,
+    IncidentRepository,
+)
 
 # Configure structured logging on module import
 configure_logging(
@@ -97,7 +104,11 @@ def get_audit_repo() -> AuditRepository:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan."""
-    logger.info("incident_api_starting", version="1.0.0", environment=os.getenv("ENVIRONMENT", "development"))
+    logger.info(
+        "incident_api_starting",
+        version="1.0.0",
+        environment=os.getenv("ENVIRONMENT", "development"),
+    )
     yield
     logger.info("incident_api_shutting_down")
 

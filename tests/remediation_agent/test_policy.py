@@ -7,7 +7,6 @@ import pytest
 from packages.contracts.common import Confidence
 from services.remediation_agent.policy import (
     PolicyDecision,
-    PolicyResult,
     RemediationPolicy,
     RiskLevel,
 )
@@ -97,9 +96,8 @@ def test_blocked_resource_denied(production_policy: RemediationPolicy) -> None:
     result = production_policy.evaluate(proposal, namespace="demo")
 
     assert result.decision == PolicyDecision.DENY
-    assert "coredns" in result.blocked_reason or "Resource" in " ".join(
-        result.policy_violations
-    )
+    assert result.blocked_reason is not None
+    assert "coredns" in result.blocked_reason
 
 
 @pytest.mark.unit
@@ -198,17 +196,23 @@ def test_high_risk_requires_additional_approval(
 
 
 @pytest.mark.unit
-def test_staging_policy_less_restrictive(
+def test_staging_policy_never_stricter_than_production(
     staging_policy: RemediationPolicy, sample_rollback_proposal: RemediationProposal
 ) -> None:
-    """Test that staging environment is less restrictive than production."""
-    prod_policy = RemediationPolicy(environment="production")
+    """Test that a staging policy never demands more approvals than production.
 
-    prod_result = prod_policy.evaluate(sample_rollback_proposal, namespace="demo")
+    Both engines require the same base approval count for this proposal, so the invariant under test
+    is the ordering between environments rather than a hard-coded number: relaxing the environment
+    must never tighten the gate.
+    """
+    prod_result = RemediationPolicy(environment="production").evaluate(
+        sample_rollback_proposal, namespace="demo"
+    )
     staging_result = staging_policy.evaluate(sample_rollback_proposal, namespace="demo")
 
-    # Both should still require approval, but may have different violation counts
+    assert prod_result.decision == PolicyDecision.REQUIRE_APPROVAL
     assert staging_result.decision in {PolicyDecision.REQUIRE_APPROVAL, PolicyDecision.ALLOW}
+    assert staging_result.required_approvals <= prod_result.required_approvals
 
 
 @pytest.mark.unit
