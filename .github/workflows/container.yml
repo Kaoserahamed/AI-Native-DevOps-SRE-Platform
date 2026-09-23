@@ -18,44 +18,45 @@ jobs:
       packages: write
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
       - name: Build backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
-          context: apps/demo-app/backend
-          file: apps/demo-app/backend/Dockerfile
+          context: .
+          file: services/demo_api/Dockerfile
           push: false
           tags: demo-api:${{ github.sha }}
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
         with:
           image-ref: demo-api:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-backend-results.sarif'
-      
+
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           sarif_file: 'trivy-backend-results.sarif'
           category: 'trivy-backend'
-      
+
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: demo-api:${{ github.sha }}
           format: spdx-json
           output-file: backend-sbom.spdx.json
-      
+
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: backend-sbom
           path: backend-sbom.spdx.json
@@ -68,44 +69,45 @@ jobs:
       packages: write
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
       - name: Build frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
-          context: apps/demo-app/frontend
+          context: .
           file: apps/demo-app/frontend/Dockerfile
           push: false
           tags: demo-web:${{ github.sha }}
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd7c87dbb0 # v0.29.0
         with:
           image-ref: demo-web:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-frontend-results.sarif'
-      
+
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           sarif_file: 'trivy-frontend-results.sarif'
           category: 'trivy-frontend'
-      
+
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: demo-web:${{ github.sha }}
           format: spdx-json
           output-file: frontend-sbom.spdx.json
-      
+
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: frontend-sbom
           path: frontend-sbom.spdx.json
@@ -117,32 +119,33 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - name: Run Trivy IaC scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
         with:
           scan-type: 'config'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-iac-results.sarif'
-      
+
       - name: Upload Trivy IaC results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           sarif_file: 'trivy-iac-results.sarif'
           category: 'trivy-iac'
-      
+
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@444c9db6fa75e2d9c19ebf1fde7322089be9009e # v12
         with:
           directory: infra/
           framework: terraform,kubernetes
           output_format: sarif
           output_file_path: checkov-results.sarif
-      
+
       - name: Upload Checkov results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           sarif_file: checkov-results.sarif
           category: 'checkov'

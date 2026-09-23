@@ -72,6 +72,12 @@ sbom/
 *.sarif
 gitleaks-report.json
 
+# Local scratch scan outputs (never commit; regenerate via CI)
+scan-errors.txt
+mypy-errors.txt
+ruff-errors.txt
+needimprovements.txt
+
 # Editors and OS
 .idea/
 .vscode/*

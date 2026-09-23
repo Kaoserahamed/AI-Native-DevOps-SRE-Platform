@@ -21,7 +21,10 @@ jobs:
   dependency-audit:
     name: Dependency vulnerability audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,23 +35,18 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
         with:
-          version: "0.5.x"
+          version: "0.12.x"
+          enable-cache: true
 
       - name: Install Python dependencies
         run: uv sync --frozen --all-extras
 
       - name: Run pip-audit
-        run: uv run pip-audit --strict --format json --output pip-audit.json || true
-        continue-on-error: true
-
-      - name: Upload pip-audit results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: pip-audit-results
-          path: pip-audit.json
+        # Fails on any known vulnerability. High/critical findings block merge;
+        # non-high findings can be ignored via --ignore-vuln (documented in SECURITY.md).
+        run: uv run pip-audit --strict
 
       - name: Set up Node.js
         uses: actions/setup-node@50df6cbea8f2c9cee43a8f88b77ba21f3f7129e1 # v4.5.1
@@ -56,9 +54,8 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Run npm audit
-        run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
+      - name: Run npm audit (fail on high/critical)
+        run: npm audit --audit-level=high
 
   secret-scan:
     name: Secret scanning
@@ -71,7 +68,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,15 +89,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         with:
           category: "/language:${{ matrix.language }}"

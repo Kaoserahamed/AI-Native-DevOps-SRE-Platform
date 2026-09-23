@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.9.x"
 
@@ -43,18 +43,35 @@ jobs:
             fi
           done
 
-      - name: Terraform plan (dry-run)
+      - name: Terraform plan (non-production only)
+        if: github.event_name == 'pull_request'
         working-directory: infra/terraform
         run: |
           for env in environments/*/; do
             if [ -d "$env" ]; then
-              echo "Planning $env"
+              env_name=$(basename "$env")
+              if [ "$env_name" == "prod" ]; then
+                echo "Skipping plan for production environment: $env_name"
+                continue
+              fi
+              echo "Planning $env_name"
               cd "$env"
-              terraform plan -input=false -out=tfplan || echo "Plan failed for $env (expected without backend)"
+              terraform plan -input=false
               cd -
             fi
           done
-        continue-on-error: true  # May fail without real backend configuration
+
+      - name: Post terraform plan summary as PR comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Terraform Plan (non-production)
+            An automated `terraform plan` has been run for non-production
+            environments. The full diff is in the **Terraform plan** step of
+            this job. Review before merge — production plans are intentionally
+            not posted here.
 
       - name: Terraform validate
         working-directory: infra/terraform
@@ -69,7 +86,7 @@ jobs:
           done
 
       - name: Run Checkov IaC security scan
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@444c9db6fa75e2d9c19ebf1fde7322089be9009e # v12
         with:
           directory: infra/terraform
           framework: terraform
@@ -80,14 +97,14 @@ jobs:
           skip_check: CKV_AWS_158,CKV_AWS_173  # Skip checks that may not apply to all environments
 
       - name: Upload Checkov results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         if: always()
         with:
           sarif_file: checkov-terraform.sarif
           category: "checkov-terraform"
 
       - name: Run Trivy IaC scan
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
         with:
           scan-type: "config"
           scan-ref: "infra/terraform"
@@ -97,7 +114,7 @@ jobs:
           output: "trivy-terraform.sarif"
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         if: always()
         with:
           sarif_file: "trivy-terraform.sarif"
@@ -152,7 +169,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Trivy Kubernetes scan
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
         with:
           scan-type: "config"
           scan-ref: "infra/kubernetes"
@@ -162,7 +179,7 @@ jobs:
           output: "trivy-k8s.sarif"
 
       - name: Upload Trivy K8s results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504 # v3
         if: always()
         with:
           sarif_file: "trivy-k8s.sarif"
