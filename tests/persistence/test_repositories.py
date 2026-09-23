@@ -18,7 +18,7 @@ from packages.contracts.common import (
     ServiceRef,
     Severity,
 )
-from packages.contracts.evidence import Evidence, EvidenceCollector, EvidenceKind
+from packages.contracts.evidence import Evidence, EvidenceCollector, EvidenceKind, TimeWindow
 from packages.contracts.incidents import Incident, IncidentStatus
 from packages.persistence.repositories import (
     AuditRepository,
@@ -184,7 +184,11 @@ def sample_incident() -> Incident:
 
 @pytest.fixture
 def sample_evidence() -> Evidence:
-    """Create sample evidence."""
+    """Create sample evidence.
+
+    ``metric_series`` evidence must carry the observation window it was collected over — the contract
+    rejects unbounded telemetry — so the fixture states the window explicitly.
+    """
     now = datetime.now(tz=UTC)
     return Evidence(
         evidence_id="evidence-001",
@@ -193,6 +197,7 @@ def sample_evidence() -> Evidence:
         collected_at=now,
         summary="P95 latency increased to 1200ms",
         excerpt="p95_latency_ms: 1200",
+        window=TimeWindow(start=now - timedelta(minutes=5), end=now),
     )
 
 
@@ -268,7 +273,9 @@ class TestIncidentRepositoryContract:
         """Test finding open incidents."""
         await incident_repo.save(sample_incident)
 
-        # Add a resolved incident
+        # Add a resolved incident. A resolved incident must cite the evidence that justified the
+        # resolution (the contract enforces "no acknowledgement, no resolution, without evidence"),
+        # so the fixture attaches one.
         resolved_incident = Incident(
             incident_id="INC-2024-002",
             title="Resolved incident",
@@ -279,6 +286,7 @@ class TestIncidentRepositoryContract:
             opened_at=datetime.now(tz=UTC),
             acknowledged_at=datetime.now(tz=UTC),
             resolved_at=datetime.now(tz=UTC),
+            evidence_ids=["evidence-002"],
             resolution_summary="Fixed",
         )
         await incident_repo.save(resolved_incident)
@@ -292,13 +300,17 @@ class TestIncidentRepositoryContract:
     async def test_update_incident(
         self, incident_repo: InMemoryIncidentRepository, sample_incident: Incident
     ) -> None:
-        """Test updating an existing incident."""
+        """Test updating an existing incident through a lifecycle transition."""
         await incident_repo.save(sample_incident)
 
-        # Update incident
-        sample_incident.status = IncidentStatus.ACKNOWLEDGED
-        sample_incident.acknowledged_at = datetime.now(tz=UTC)
-        await incident_repo.save(sample_incident)
+        # Update incident: acknowledging requires the acknowledgement timestamp *and* the evidence
+        # that justified it, which the transition assembles in one validated step.
+        acknowledged = sample_incident.transitioned_to(
+            IncidentStatus.ACKNOWLEDGED,
+            at=datetime.now(tz=UTC),
+            evidence_ids=["evidence-001"],
+        )
+        await incident_repo.save(acknowledged)
 
         # Retrieve and verify
         retrieved = await incident_repo.find_by_id(sample_incident.incident_id)
@@ -306,6 +318,14 @@ class TestIncidentRepositoryContract:
         assert retrieved is not None
         assert retrieved.status == IncidentStatus.ACKNOWLEDGED
         assert retrieved.acknowledged_at is not None
+
+    @pytest.mark.asyncio
+    async def test_transition_rejects_a_skipped_step(self, sample_incident: Incident) -> None:
+        """A transition the state machine forbids is rejected rather than persisted."""
+        with pytest.raises(ValueError, match="cannot move an incident"):
+            sample_incident.transitioned_to(
+                IncidentStatus.CLOSED, at=datetime.now(tz=UTC), resolution_summary="skipped"
+            )
 
 
 class TestEvidenceRepositoryContract:
@@ -329,8 +349,10 @@ class TestEvidenceRepositoryContract:
         self, evidence_repo: InMemoryEvidenceRepository, sample_evidence: Evidence
     ) -> None:
         """Test finding evidence by incident."""
-        sample_evidence.incident_id = "INC-2024-001"
-        await evidence_repo.save(sample_evidence)
+        # Evidence is a frozen wire contract: attaching it to an incident produces a new value with
+        # the incident recorded, rather than editing the observation in place.
+        attached = sample_evidence.model_copy(update={"incident_id": "INC-2024-001"})
+        await evidence_repo.save(attached)
 
         evidence_list = await evidence_repo.find_by_incident("INC-2024-001")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 from migrations.runner import MigrationRunner, load_migrations
@@ -14,7 +15,7 @@ MIGRATIONS = load_migrations()
 
 
 @pytest.fixture
-async def test_engine() -> AsyncEngine:
+async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create in-memory SQLite engine for testing."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     yield engine
@@ -47,13 +48,17 @@ class TestMigrationRunner:
 
         applied = await runner.run_migrations()
 
-        assert len(applied) == 1
-        assert applied[0].version == 1
-        assert applied[0].description == MIGRATIONS[0].description
+        # Every versioned migration is applied, in order, with its own recorded description.
+        assert [record.version for record in applied] == [
+            migration.version for migration in MIGRATIONS
+        ]
+        assert [record.description for record in applied] == [
+            migration.description for migration in MIGRATIONS
+        ]
 
-        # Verify tracking record
+        # Verify tracking record matches the newest schema version
         version = await runner.get_schema_version()
-        assert version == 1
+        assert version == max(migration.version for migration in MIGRATIONS)
 
     @pytest.mark.asyncio
     async def test_skips_already_applied_migrations(self, test_engine: AsyncEngine) -> None:
@@ -82,7 +87,6 @@ class TestMigrationRunner:
 
 class TestInitialSchemaMigration:
     """Test initial schema migration."""
-
     @pytest.mark.asyncio
     async def test_creates_incidents_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates incidents table."""
@@ -262,4 +266,4 @@ class TestMigrationIdempotency:
         async with test_engine.connect() as conn:
             result = await conn.execute(text("SELECT COUNT(*) FROM schema_migrations"))
             count = result.scalar()
-            assert count == 1
+            assert count == 2

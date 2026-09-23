@@ -21,6 +21,7 @@ test suite runs on), so the same code path is exercised in both.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Final
 
 from sqlalchemy import (
@@ -38,12 +39,17 @@ from sqlalchemy import (
 )
 
 #: Deterministic constraint names, so a migration diff and a database error both name the same object.
-NAMING_CONVENTION: Final[dict[str, str]] = {
+NAMING_CONVENTION: Final[dict[str, str | Callable[..., str]]] = {
     "ix": "ix_%(table_name)s_%(column_names)s",
     "uq": "uq_%(table_name)s_%(column_names)s",
     "ck": "ck_%(table_name)s_%(constraint_name)s",
     "fk": "fk_%(table_name)s_%(column_names)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s",
+    # ``column_names`` is a custom token: SQLAlchemy 2.0 does not provide it
+    # automatically, so we supply a callable that joins the constraint's
+    # column names with underscores.  Without this the ``ix``/``uq``/``fk``
+    # templates raise ``KeyError`` at import time.
+        "column_names": lambda const, _table: "_".join(col.name for col in const.columns),
 }
 
 metadata = MetaData(naming_convention=NAMING_CONVENTION)
@@ -176,4 +182,31 @@ approvals = Table(
     ForeignKeyConstraint(
         ["incident_id"], ["incidents.incident_id"], name="incident", ondelete="CASCADE"
     ),
+)
+
+audit_events = Table(
+    "audit_events",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("event_id", String(128), nullable=False, unique=True, index=True),
+    Column("occurred_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("actor_type", String(20), nullable=False),
+    Column("actor_id", String(254), nullable=False, index=True),
+    Column("event_type", String(40), nullable=False, index=True),
+    Column("subject", String(128), nullable=False, index=True),
+    Column("result", String(20), nullable=False),
+    Column("correlation_id", String(128), nullable=False, index=True),
+    Column("incident_id", String(128), nullable=True, index=True),
+    Column("approval_id", String(128), nullable=True, index=True),
+    Column("action_hash", String(80), nullable=True),
+    Column("tool", String(128), nullable=True),
+    # The authoritative contract payload. ``digest`` and ``previous_digest`` are columns rather than
+    # payload fields because the chain is what an operator queries when verifying a history.
+    Column("document", JSON, nullable=False),
+    Column("previous_digest", String(80), nullable=True),
+    Column("digest", String(80), nullable=False, index=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(_sql_in("actor_type", AUDIT_ACTOR_TYPES), name="actor_type"),
+    CheckConstraint(_sql_in("result", AUDIT_RESULTS), name="result"),
+    Index("ix_audit_events_subject_occurred", "subject", "occurred_at"),
 )
