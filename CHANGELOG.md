@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prometheus alert rules for SRE monitoring
 - Grafana dashboard for API overview
 - Complete documentation structure
+- Terraform `fmt`/`validate`/`plan` and Checkov/tfsec policy gating in `infrastructure.yml`, with per-environment encrypted remote state backends
 - Sentry error tracking resolved from `SENTRY_DSN`/`SENTRY_ENVIRONMENT` inside `configure_logging`
 
 ### Changed
