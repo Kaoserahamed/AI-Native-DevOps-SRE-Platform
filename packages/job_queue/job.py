@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import Field
 
-from packages.contracts.common import Identifier, PlatformModel, UtcDatetime
+from packages.contracts.common import AggregateModel, Identifier, UtcDatetime
 
 
 class JobStatus(StrEnum):
@@ -21,8 +21,13 @@ class JobStatus(StrEnum):
     DEAD = "dead"
 
 
-class Job(PlatformModel):
-    """A job to be processed asynchronously."""
+class Job(AggregateModel):
+    """A job to be processed asynchronously.
+
+    The queue moves a job through its lifecycle in place (``pending`` → ``processing`` → …), so this
+    is an aggregate rather than a frozen wire payload: every status write is re-validated by the
+    contract's own constraints.
+    """
 
     job_id: Identifier
     job_type: str = Field(description="Type of job (e.g., 'incident_analysis', 'remediation')")

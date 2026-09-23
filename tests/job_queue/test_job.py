@@ -134,7 +134,15 @@ class TestJob:
         assert job.next_retry_delay() == timedelta(seconds=4)
 
         job.retry_count = 10
-        # Capped at 1 hour
+        # 2^10 = 1024 seconds: still growing, still below the ceiling
+        assert job.next_retry_delay() == timedelta(seconds=1024)
+
+        job.retry_count = 12
+        # 2^12 = 4096 seconds would exceed the ceiling, so the delay stops at one hour
+        assert job.next_retry_delay() == timedelta(hours=1)
+
+        job.retry_count = 20
+        # The ceiling holds however large the retry count grows
         assert job.next_retry_delay() == timedelta(hours=1)
 
     def test_job_serialization(self) -> None:
