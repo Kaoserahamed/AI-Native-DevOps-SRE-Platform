@@ -263,7 +263,9 @@ class GitHubAdapter:
                     )
                 )
             except (KeyError, ValueError) as e:
-                logger.warning("Failed to parse commit %s: %s", commit_data.get("sha", "unknown"), e)
+                logger.warning(
+                    "Failed to parse commit %s: %s", commit_data.get("sha", "unknown"), e
+                )
                 continue
 
         logger.info("Retrieved %d commits", len(commits))
@@ -294,7 +296,10 @@ class GitHubAdapter:
         )
 
         client = await self._get_client()
-        params = {"environment": environment, "per_page": min(limit, 100)}
+        params: dict[str, str | int] = {
+            "environment": environment,
+            "per_page": min(limit, 100),
+        }
 
         response = await client.get(
             f"/repos/{self.config.owner}/{self.config.repo}/deployments", params=params
@@ -324,7 +329,9 @@ class GitHubAdapter:
                     )
                 )
             except (KeyError, ValueError) as e:
-                logger.warning("Failed to parse deployment %s: %s", dep_data.get("id", "unknown"), e)
+                logger.warning(
+                    "Failed to parse deployment %s: %s", dep_data.get("id", "unknown"), e
+                )
                 continue
 
         logger.info("Retrieved %d deployments for %s", len(deployments), environment)
@@ -469,17 +476,34 @@ class GitHubAdapter:
         """
         logger.info("Updating PR #%d in %s/%s", pr_number, self.config.owner, self.config.repo)
 
-        # Stub - would PATCH to /repos/{owner}/{repo}/pulls/{pr_number}
-        return GitHubPullRequest(
-            number=pr_number,
-            title="Updated PR",
-            body=body or "Updated",
-            state=state or "open",
-            head_branch="feature-branch",
-            base_branch="main",
-            url=f"https://github.com/{self.config.owner}/{self.config.repo}/pull/{pr_number}",
-            created_at=datetime.now(),
+        client = await self._get_client()
+        payload = {}
+        if body is not None:
+            payload["body"] = body
+        if state is not None:
+            payload["state"] = state
+
+        response = await client.patch(
+            f"/repos/{self.config.owner}/{self.config.repo}/pulls/{pr_number}", json=payload
         )
+        response.raise_for_status()
+
+        pr_data = response.json()
+        pr = GitHubPullRequest(
+            number=pr_data["number"],
+            title=pr_data["title"],
+            body=pr_data["body"],
+            state=pr_data["state"],
+            head_branch=pr_data["head"]["ref"],
+            base_branch=pr_data["base"]["ref"],
+            url=pr_data["html_url"],
+            created_at=datetime.fromisoformat(pr_data["created_at"].replace("Z", "+00:00")),
+            draft=pr_data.get("draft", False),
+            mergeable=pr_data.get("mergeable"),
+        )
+
+        logger.info("Updated PR #%d: %s", pr.number, pr.url)
+        return pr
 
     async def add_comment_to_pull_request(self, pr_number: int, comment: str) -> None:
         """Add a comment to an existing pull request.
@@ -495,7 +519,16 @@ class GitHubAdapter:
             "Adding comment to PR #%d in %s/%s", pr_number, self.config.owner, self.config.repo
         )
 
-        # Stub - would POST to /repos/{owner}/{repo}/issues/{pr_number}/comments
+        client = await self._get_client()
+        payload = {"body": comment}
+
+        response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/issues/{pr_number}/comments",
+            json=payload,
+        )
+        response.raise_for_status()
+
+        logger.info("Added comment to PR #%d", pr_number)
 
     async def get_check_status(self, ref: str) -> dict[str, Any]:
         """Get CI check status for a git ref.
@@ -514,13 +547,37 @@ class GitHubAdapter:
             "Fetching check status for %s in %s/%s", ref, self.config.owner, self.config.repo
         )
 
-        # Stub - would call GitHub Checks API
-        # GET /repos/{owner}/{repo}/commits/{ref}/check-runs
+        check_runs = await self.get_check_runs(ref)
+
+        # Aggregate status and conclusion
+        if not check_runs:
+            return {
+                "ref": ref,
+                "status": "completed",
+                "conclusion": "success",
+                "checks": [],
+            }
+
+        all_completed = all(run.status == "completed" for run in check_runs)
+        any_failures = any(
+            run.conclusion in ["failure", "timed_out", "action_required"] for run in check_runs
+        )
+
+        status = "completed" if all_completed else "in_progress"
+        conclusion = "failure" if any_failures else "success" if all_completed else "pending"
+
         return {
             "ref": ref,
-            "status": "completed",
-            "conclusion": "success",
-            "checks": [],
+            "status": status,
+            "conclusion": conclusion,
+            "checks": [
+                {
+                    "name": run.name,
+                    "status": run.status,
+                    "conclusion": run.conclusion,
+                }
+                for run in check_runs
+            ],
         }
 
     async def get_check_runs(self, ref: str) -> list[GitHubCheckRun]:
@@ -643,8 +700,8 @@ class GitHubAdapter:
             ]
         )
 
-        for trace_id in data.traces[:5]:  # Limit to 5 trace IDs
-            body_sections.append(f"- `{trace_id}`")
+        # Limit to 5 trace IDs
+        body_sections.extend(f"- `{trace_id}`" for trace_id in data.traces[:5])
 
         if len(data.traces) > 5:
             body_sections.append(f"\n*...and {len(data.traces) - 5} more traces*")
@@ -656,11 +713,11 @@ class GitHubAdapter:
             ]
         )
 
-        for deployment in data.recent_deployments[:5]:
-            body_sections.append(
-                f"- **{deployment.created_at.strftime('%Y-%m-%d %H:%M:%S')}**: "
-                f"{deployment.environment} - {deployment.sha[:7]} ({deployment.state})"
-            )
+        body_sections.extend(
+            f"- **{deployment.created_at.strftime('%Y-%m-%d %H:%M:%S')}**: "
+            f"{deployment.environment} - {deployment.sha[:7]} ({deployment.state})"
+            for deployment in data.recent_deployments[:5]
+        )
 
         body_sections.extend(
             [
@@ -675,8 +732,7 @@ class GitHubAdapter:
             ]
         )
 
-        for evidence_id in data.evidence_ids:
-            body_sections.append(f"- `{evidence_id}`")
+        body_sections.extend(f"- `{evidence_id}`" for evidence_id in data.evidence_ids)
 
         body = "\n".join(body_sections)
 
@@ -709,15 +765,39 @@ class GitHubAdapter:
             self.config.repo,
         )
 
-        # Stub - would:
-        # 1. GET /repos/{owner}/{repo}/git/ref/heads/{base_ref} to get SHA
-        # 2. POST /repos/{owner}/{repo}/git/refs to create new branch
-        return "abc123"
+        client = await self._get_client()
+
+        # Get SHA of the base ref
+        try:
+            ref_response = await client.get(
+                f"/repos/{self.config.owner}/{self.config.repo}/git/ref/heads/{base_ref}"
+            )
+            ref_response.raise_for_status()
+            base_sha = ref_response.json()["object"]["sha"]
+        except httpx.HTTPStatusError:
+            # Try as a direct commit SHA
+            commit_response = await client.get(
+                f"/repos/{self.config.owner}/{self.config.repo}/git/commits/{base_ref}"
+            )
+            commit_response.raise_for_status()
+            base_sha = commit_response.json()["sha"]
+
+        # Create the new branch
+        payload = {"ref": f"refs/heads/{branch_name}", "sha": base_sha}
+
+        response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/refs", json=payload
+        )
+        response.raise_for_status()
+
+        created_sha: str = response.json()["object"]["sha"]
+        logger.info("Created branch %s at SHA %s", branch_name, created_sha)
+        return created_sha
 
     async def commit_files(
         self, branch: str, files: dict[str, str], message: str, author: dict[str, str] | None = None
     ) -> str:
-        """Commit file changes to a branch.
+        """Commit file changes to a branch using Git Data API for atomic multi-file commits.
 
         Parameters
         ----------
@@ -743,17 +823,80 @@ class GitHubAdapter:
             self.config.repo,
         )
 
-        # Stub - would:
-        # For each file:
-        #   1. GET /repos/{owner}/{repo}/contents/{path}?ref={branch} (if updating)
-        #   2. PUT /repos/{owner}/{repo}/contents/{path} with content and message
-        # Or use Git Data API for atomic multi-file commits:
-        #   1. GET tree SHA for branch
-        #   2. Create blobs for each file
-        #   3. Create new tree with updated blobs
-        #   4. Create commit pointing to new tree
-        #   5. Update branch ref
-        return "def456"
+        client = await self._get_client()
+
+        # 1. Get current branch reference to get tree SHA
+        ref_response = await client.get(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/ref/heads/{branch}"
+        )
+        ref_response.raise_for_status()
+        current_commit_sha = ref_response.json()["object"]["sha"]
+
+        # 2. Get the current commit to get its tree
+        commit_response = await client.get(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/commits/{current_commit_sha}"
+        )
+        commit_response.raise_for_status()
+        base_tree_sha = commit_response.json()["tree"]["sha"]
+
+        # 3. Create blobs for each file
+
+        tree_items = []
+        for filepath, content in files.items():
+            blob_payload = {
+                "content": content,
+                "encoding": "utf-8",
+            }
+            blob_response = await client.post(
+                f"/repos/{self.config.owner}/{self.config.repo}/git/blobs", json=blob_payload
+            )
+            blob_response.raise_for_status()
+            blob_sha = blob_response.json()["sha"]
+
+            tree_items.append(
+                {
+                    "path": filepath,
+                    "mode": "100644",  # Regular file
+                    "type": "blob",
+                    "sha": blob_sha,
+                }
+            )
+
+        # 4. Create new tree with updated blobs
+        tree_payload = {"base_tree": base_tree_sha, "tree": tree_items}
+
+        tree_response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/trees", json=tree_payload
+        )
+        tree_response.raise_for_status()
+        new_tree_sha = tree_response.json()["sha"]
+
+        # 5. Create commit pointing to new tree
+        commit_payload = {
+            "message": message,
+            "tree": new_tree_sha,
+            "parents": [current_commit_sha],
+        }
+        if author:
+            commit_payload["author"] = author
+
+        new_commit_response = await client.post(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/commits", json=commit_payload
+        )
+        new_commit_response.raise_for_status()
+        new_commit_sha: str = new_commit_response.json()["sha"]
+
+        # 6. Update branch reference to point to new commit
+        update_ref_payload = {"sha": new_commit_sha, "force": False}
+
+        update_response = await client.patch(
+            f"/repos/{self.config.owner}/{self.config.repo}/git/refs/heads/{branch}",
+            json=update_ref_payload,
+        )
+        update_response.raise_for_status()
+
+        logger.info("Committed %d files to %s at SHA %s", len(files), branch, new_commit_sha)
+        return new_commit_sha
 
     async def create_remediation_pr(self, data: RemediationPRData) -> GitHubPullRequest:
         """Create a governed remediation pull request from an approved proposal.
@@ -832,8 +975,7 @@ class GitHubAdapter:
             ]
         )
 
-        for filepath in data.changes.keys():
-            body_sections.append(f"- `{filepath}`")
+        body_sections.extend(f"- `{filepath}`" for filepath in data.changes)
 
         body_sections.extend(
             [

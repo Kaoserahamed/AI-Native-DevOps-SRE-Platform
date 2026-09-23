@@ -1,18 +1,20 @@
 """Integration tests for GitHub adapter with mocked HTTP responses."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+import httpx
+from httpx import Response
 import pytest
 import respx
-from httpx import Response
 
 from packages.github_client.adapter import (
     GitHubAdapter,
-    GitHubConfig,
+    GitHubCheckRun,
     GitHubCommit,
+    GitHubConfig,
     GitHubDeployment,
     GitHubIssue,
     GitHubPullRequest,
-    GitHubCheckRun,
 )
 
 
@@ -127,8 +129,8 @@ async def test_get_commit_history_with_date_range(adapter: GitHubAdapter) -> Non
         return_value=Response(200, json=mock_response)
     )
 
-    since = datetime(2024, 1, 10, tzinfo=timezone.utc)
-    until = datetime(2024, 1, 20, tzinfo=timezone.utc)
+    since = datetime(2024, 1, 10, tzinfo=UTC)
+    until = datetime(2024, 1, 20, tzinfo=UTC)
 
     commits = await adapter.get_commit_history(since=since, until=until, limit=50)
 
@@ -391,7 +393,7 @@ async def test_http_error_handling(adapter: GitHubAdapter) -> None:
         return_value=Response(404, json={"message": "Not Found"})
     )
 
-    with pytest.raises(Exception):  # httpx.HTTPStatusError
+    with pytest.raises(httpx.HTTPStatusError, match="404"):
         await adapter.get_repository_metadata()
 
 
