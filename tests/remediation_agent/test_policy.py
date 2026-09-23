@@ -238,6 +238,7 @@ def test_custom_blocked_resources(sample_rollback_proposal: RemediationProposal)
 
     # demo-api is in the command, should be denied
     assert result.decision == PolicyDecision.DENY
+    assert result.blocked_reason is not None
     assert "demo-api" in result.blocked_reason
 
 

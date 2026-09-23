@@ -7,6 +7,7 @@ state machine that cannot skip steps.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, Final
 
 from pydantic import ValidationError
@@ -76,17 +77,77 @@ def test_unknown_fields_are_rejected(
         model.model_validate(payload)
 
 
+#: Payloads that are *stateful aggregates* rather than wire messages. The incident lifecycle moves an
+#: incident through states, so the aggregate validates every write instead of forbidding writes
+#: altogether; everything else stays frozen.
+MUTABLE_AGGREGATES: Final[frozenset[str]] = frozenset({"incident"})
+
+
 @pytest.mark.parametrize(("fixture_name", "model_name"), PAYLOAD_FIXTURES)
 def test_payloads_are_immutable(
     request: pytest.FixtureRequest, fixture_name: str, model_name: str
 ) -> None:
-    """Frozen payloads cannot be mutated after validation, which protects the audit trail."""
+    """Wire payloads are frozen, and a stateful aggregate re-validates every write.
+
+    Both halves protect the same property: a payload can never hold a state the contract does not
+    describe. A frozen payload cannot be edited at all; an aggregate may be edited, but only into a
+    state its own validators accept.
+    """
     payload: dict[str, Any] = request.getfixturevalue(f"{fixture_name}_payload")
     model = getattr(contracts, model_name)
     instance = model.model_validate(payload)
 
+    if fixture_name in MUTABLE_AGGREGATES:
+        with pytest.raises(ValidationError):
+            instance.__setattr__("status", "not-a-real-status")
+        return
+
     with pytest.raises(ValidationError):
         instance.__setattr__("schema_version", "v2")
+
+
+def test_incident_aggregate_rejects_a_skipped_transition(incident_payload: dict[str, Any]) -> None:
+    """The state machine, not the caller, decides which transitions an incident may make."""
+    incident = Incident.model_validate(incident_payload)
+
+    with pytest.raises(ValueError, match="cannot move an incident"):
+        incident.transitioned_to(
+            IncidentStatus.CLOSED,
+            at=datetime(2026, 9, 20, 10, 5, tzinfo=UTC),
+        )
+
+
+def test_incident_aggregate_transition_is_validated(incident_payload: dict[str, Any]) -> None:
+    """A permitted transition returns a validated aggregate with the state's timestamp recorded."""
+    incident = Incident.model_validate(incident_payload)
+    acknowledged_at = datetime(2026, 9, 20, 10, 5, tzinfo=UTC)
+
+    acknowledged = incident.transitioned_to(
+        IncidentStatus.ACKNOWLEDGED,
+        at=acknowledged_at,
+        evidence_ids=["evidence-0001"],
+    )
+
+    assert acknowledged.status is IncidentStatus.ACKNOWLEDGED
+    assert acknowledged.acknowledged_at == acknowledged_at
+    assert acknowledged.evidence_ids == ["evidence-0001"]
+    # The original value is untouched: a transition returns a new validated aggregate.
+    assert incident.status is IncidentStatus.OPEN
+
+
+def test_transition_requiring_a_proposal_is_refused(incident_payload: dict[str, Any]) -> None:
+    """Mitigating without a proposal or an approval is refused, not silently persisted."""
+    acknowledged = Incident.model_validate(incident_payload).transitioned_to(
+        IncidentStatus.ACKNOWLEDGED,
+        at=datetime(2026, 9, 20, 10, 5, tzinfo=UTC),
+        evidence_ids=["evidence-0001"],
+    )
+
+    with pytest.raises(ValidationError, match="proposal or an approval"):
+        acknowledged.transitioned_to(
+            IncidentStatus.MITIGATING,
+            at=datetime(2026, 9, 20, 10, 10, tzinfo=UTC),
+        )
 
 
 def test_naive_timestamps_are_rejected(alert_payload: dict[str, Any]) -> None:

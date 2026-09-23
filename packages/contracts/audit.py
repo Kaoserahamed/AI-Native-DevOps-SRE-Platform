@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Final, Self
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from packages.contracts.common import (
     MAX_MAPPING_ENTRIES,
@@ -131,3 +131,74 @@ class AuditEvent(PlatformModel):
         """Return whether this event correctly chains onto ``previous``."""
         expected = None if previous is None else previous.digest
         return self.previous_digest == expected
+
+
+#: Maps the simple action strings used at API boundaries to the canonical
+#: event types the audit trail stores.  Several boundaries collapse to
+#: ``INCIDENT_TRANSITIONED`` because the trail records lifecycle movement,
+#: not the specific verb the caller used.
+_ACTION_TO_EVENT_TYPE: Final[dict[str, AuditEventType]] = {
+    "incident.create": AuditEventType.INCIDENT_OPENED,
+    "incident.update": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.acknowledge": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.investigate": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.mitigate": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.resolve": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.reopen": AuditEventType.INCIDENT_TRANSITIONED,
+    "incident.close": AuditEventType.INCIDENT_TRANSITIONED,
+    "evidence.attach": AuditEventType.EVIDENCE_COLLECTED,
+}
+
+#: Maps the outcome strings used at API boundaries to the typed ``AuditResult``.
+_OUTCOME_TO_RESULT: Final[dict[str, AuditResult]] = {
+    "success": AuditResult.SUCCEEDED,
+    "failed": AuditResult.FAILED,
+    "denied": AuditResult.DENIED,
+}
+
+
+class AuditEntry(BaseModel):
+    """Convenience model for audit records created at API boundaries.
+
+    API endpoints create audit entries using field names that are clearer in
+    that context (``audit_id``, ``timestamp``, ``action``).  :meth:`to_event`
+    converts them to the canonical :class:`AuditEvent` that the persistence
+    layer stores, mapping free-form action strings to typed
+    :class:`AuditEventType` values and sealing the chain digests.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    audit_id: Identifier
+    timestamp: UtcDatetime
+    actor_type: ActorType
+    actor_id: PrincipalId
+    action: str
+    resource_type: str
+    resource_id: Identifier
+    outcome: str
+    details: Attributes | None = None
+
+    def to_event(self) -> AuditEvent:
+        """Convert to a canonical :class:`AuditEvent` for persistence."""
+        result = _OUTCOME_TO_RESULT.get(self.outcome, AuditResult.FAILED)
+        return AuditEvent(
+            event_id=self.audit_id,
+            occurred_at=self.timestamp,
+            actor=AuditActor(
+                actor_type=self.actor_type,
+                actor_id=self.actor_id,
+            ),
+            event_type=_ACTION_TO_EVENT_TYPE.get(
+                self.action, AuditEventType.INCIDENT_TRANSITIONED
+            ),
+            subject=self.resource_id,
+            result=result,
+            correlation_id=f"corr-{self.resource_id}",
+            incident_id=self.resource_id if self.resource_type == "incident" else None,
+            attributes={
+                "action": self.action,
+                "resource_type": self.resource_type,
+            },
+            after=self.details,
+        )

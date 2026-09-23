@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from packages.contracts.common import Confidence
 from packages.contracts.incidents import CauseCategory
 from services.remediation_agent.proposal import (
     BlastRadius,
@@ -130,7 +129,9 @@ def test_proposal_includes_governance_fields(engine: ProposalEngine) -> None:
     assert proposal.expected_impact
     assert proposal.blast_radius
     assert proposal.rollback_plan
-    assert isinstance(proposal.confidence, Confidence)
+    # ``Confidence`` is an annotated ``float``, not a runtime class: isinstance must be taken
+    # against the runtime type its constraints produce.
+    assert isinstance(proposal.confidence, float)
     assert isinstance(proposal.required_approvals, int)
     assert isinstance(proposal.safe_to_automate, bool)
     assert isinstance(proposal.commands, list)

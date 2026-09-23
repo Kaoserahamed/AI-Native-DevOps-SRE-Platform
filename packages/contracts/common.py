@@ -138,6 +138,21 @@ class PlatformModel(ValueModel):
     )
 
 
+class AggregateModel(PlatformModel):
+    """Base class for stateful aggregates that a repository loads, mutates and saves.
+
+    Wire-level contracts are frozen: a payload that arrives over a request must never be edited in
+    place, because the caller's copy would silently change. Aggregates are the deliberate exception —
+    the incident lifecycle and the job queue both move an object through states — so instead of
+    immutability they get **assignment validation**: every attribute write re-runs the contract's
+    validators, which is what stops a state transition from leaving the object in a state the
+    contract forbids. Transitions that need a consistent set of fields should prefer
+    :meth:`Incident.transitioned_to`, which builds the updated aggregate in one validated step.
+    """
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, frozen=False)
+
+
 class ServiceRef(ValueModel):
     """Identifies the workload an observation or action refers to."""
 

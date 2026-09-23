@@ -145,7 +145,7 @@
   "$id": "https://raw.githubusercontent.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/main/packages/contracts/schemas/v1/incident.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Durable incident record: what broke, what we know, and what was decided.",
+  "description": "Durable incident record: what broke, what we know, and what was decided.\n\nThe lifecycle is advanced through :meth:`transitioned_to` rather than by assigning ``status``\nfield by field: one call assembles the status, the timestamp and the references the contract\nrequires together, so the aggregate is only ever observed in a state the state machine allows.",
   "properties": {
     "acknowledged_at": {
       "anyOf": [
