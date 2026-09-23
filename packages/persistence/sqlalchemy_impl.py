@@ -14,8 +14,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from packages.contracts.common import Environment, Identifier, ServiceRef
-from packages.contracts.incidents import Incident, IncidentStatus, Severity
+from packages.contracts.common import Environment, Identifier, ServiceRef, Severity
+from packages.contracts.incidents import Incident, IncidentStatus
 from packages.persistence.repositories import (
     IncidentRepository,
 )

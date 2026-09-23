@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from migrations.runner import MigrationRunner
-from migrations.versions import initial_schema as migration_001
+from migrations.runner import MigrationRunner, load_migrations
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+#: Every versioned migration, loaded the same way the running service loads them.
+MIGRATIONS = load_migrations()
 
 
 @pytest.fixture
@@ -41,13 +43,13 @@ class TestMigrationRunner:
     @pytest.mark.asyncio
     async def test_tracks_applied_migrations(self, test_engine: AsyncEngine) -> None:
         """Test that applied migrations are tracked."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
 
         applied = await runner.run_migrations()
 
         assert len(applied) == 1
         assert applied[0].version == 1
-        assert applied[0].description == migration_001.description
+        assert applied[0].description == MIGRATIONS[0].description
 
         # Verify tracking record
         version = await runner.get_schema_version()
@@ -56,7 +58,7 @@ class TestMigrationRunner:
     @pytest.mark.asyncio
     async def test_skips_already_applied_migrations(self, test_engine: AsyncEngine) -> None:
         """Test that already-applied migrations are skipped."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
 
         # Run once
         await runner.run_migrations()
@@ -70,7 +72,7 @@ class TestMigrationRunner:
     async def test_runs_migrations_in_order(self, test_engine: AsyncEngine) -> None:
         """Test that migrations run in version order."""
         # Create multiple migrations (only migration_001 exists for now)
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
 
         applied = await runner.run_migrations()
 
@@ -84,7 +86,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_incidents_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates incidents table."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -114,7 +116,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_evidence_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates evidence table."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -126,7 +128,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_remediation_tables(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates remediation tables."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -147,7 +149,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_agent_executions_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates agent executions table."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -161,7 +163,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_audit_log_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates audit log table."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -173,7 +175,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_idempotency_keys_table(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates idempotency keys table."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -187,7 +189,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_creates_indexes(self, test_engine: AsyncEngine) -> None:
         """Test that migration creates indexes."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -203,7 +205,7 @@ class TestInitialSchemaMigration:
     @pytest.mark.asyncio
     async def test_incidents_can_be_inserted(self, test_engine: AsyncEngine) -> None:
         """Test that incidents can be inserted after migration."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
         await runner.run_migrations()
 
         async with test_engine.connect() as conn:
@@ -247,7 +249,7 @@ class TestMigrationIdempotency:
     @pytest.mark.asyncio
     async def test_migration_is_idempotent(self, test_engine: AsyncEngine) -> None:
         """Test that running migrations multiple times is safe."""
-        runner = MigrationRunner(test_engine, [migration_001])
+        runner = MigrationRunner(test_engine, MIGRATIONS)
 
         # Run migrations twice
         await runner.run_migrations()

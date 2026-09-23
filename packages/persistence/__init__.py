@@ -6,6 +6,8 @@ Keeps SQL and data access logic separate from business logic through clean inter
 from __future__ import annotations
 
 __all__ = [
+    "AsyncAuditWriter",
+    "AuditChainError",
     "AuditRepository",
     "EvidenceRepository",
     "IdempotencyRepository",
@@ -14,6 +16,7 @@ __all__ = [
     "UnitOfWork",
 ]
 
+from packages.persistence.audit_writer import AsyncAuditWriter, AuditChainError
 from packages.persistence.repositories import (
     AuditRepository,
     EvidenceRepository,

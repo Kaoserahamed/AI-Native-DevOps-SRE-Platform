@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import importlib.util
 import logging
-from typing import Protocol
+from pathlib import Path
+from typing import Final, Protocol, cast
 
 from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, insert, select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -35,6 +37,46 @@ class MigrationRecord:
     version: int
     description: str
     applied_at: datetime
+
+
+#: Directory holding the versioned migration modules. They are loaded by path because a migration file is
+#: named after the schema version it introduces (`001_initial_schema.py`), which is not a valid Python
+#: identifier: importing it by module name would need a rename that hides the version it carries.
+VERSIONS_DIR: Final[Path] = Path(__file__).resolve().parent / "versions"
+
+
+def load_migrations(directory: Path | None = None) -> list[Migration]:
+    """Load every migration module in ``directory`` (default: ``migrations/versions``).
+
+    Returns
+    -------
+    list[Migration]
+        The migrations, ordered by version. A file that does not define both ``version`` and ``up`` is
+        skipped rather than failing the whole load, so an in-progress migration cannot break startup.
+    """
+    resolved = directory or VERSIONS_DIR
+    migrations: list[Migration] = []
+    if not resolved.is_dir():
+        return migrations
+
+    for path in sorted(resolved.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        module_name = f"migrations.versions.{path.stem}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:  # pragma: no cover
+            raise RuntimeError(f"unable to load migration module {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        version = getattr(module, "version", None)
+        up = getattr(module, "up", None)
+        if not isinstance(version, int) or not callable(up):
+            logger.warning("Skipping %s: no version/up pair declared", path.name)
+            continue
+        migrations.append(cast(Migration, module))
+
+    return sorted(migrations, key=lambda migration: migration.version)
 
 
 class MigrationRunner:

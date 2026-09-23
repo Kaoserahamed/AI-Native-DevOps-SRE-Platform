@@ -17,7 +17,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
-    ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     MetaData,
@@ -25,6 +25,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -121,7 +122,7 @@ async def up(conn: AsyncConnection, metadata: MetaData) -> None:
             "status IN ('pending', 'approved', 'rejected', 'expired', 'superseded')",
             name="ck_proposals_status",
         ),
-        ForeignKey(
+        ForeignKeyConstraint(
             ["incident_id"],
             ["incidents.incident_id"],
             name="fk_proposals_incident",
@@ -146,7 +147,7 @@ async def up(conn: AsyncConnection, metadata: MetaData) -> None:
         Column("revoked_at", DateTime(timezone=True), nullable=True),
         Column("revoked_by", String(254), nullable=True),
         Column("created_at", DateTime(timezone=True), nullable=False),
-        ForeignKey(
+        ForeignKeyConstraint(
             ["proposal_id"],
             ["remediation_proposals.proposal_id"],
             name="fk_approvals_proposal",
@@ -243,4 +244,4 @@ async def down(conn: AsyncConnection, _metadata: MetaData) -> None:
     ]
 
     for table_name in tables:
-        await conn.execute(f"DROP TABLE IF EXISTS {table_name} CASCADE")
+        await conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))

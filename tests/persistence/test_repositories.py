@@ -10,10 +10,16 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from packages.contracts.audit import ActorType, AuditEntry
-from packages.contracts.common import Environment, Identifier, ServiceRef
+from packages.contracts.audit import AuditActor, AuditEvent, AuditEventType, AuditResult
+from packages.contracts.common import (
+    ActorType,
+    Environment,
+    Identifier,
+    ServiceRef,
+    Severity,
+)
 from packages.contracts.evidence import Evidence, EvidenceCollector, EvidenceKind
-from packages.contracts.incidents import Incident, IncidentStatus, Severity
+from packages.contracts.incidents import Incident, IncidentStatus
 from packages.persistence.repositories import (
     AuditRepository,
     EvidenceRepository,
@@ -94,34 +100,49 @@ class InMemoryEvidenceRepository(EvidenceRepository):
 
 
 class InMemoryAuditRepository(AuditRepository):
-    """In-memory test double for audit repository."""
+    """In-memory test double for the append-only audit repository."""
 
     def __init__(self) -> None:
-        self.entries: list[AuditEntry] = []
+        self.events: list[AuditEvent] = []
 
-    async def append(self, entry: AuditEntry) -> None:
-        """Append audit entry."""
-        self.entries.append(entry)
+    async def append(self, event: AuditEvent) -> AuditEvent:
+        """Append an audit event, sealing it onto the chain like the real store does."""
+        head = await self.head()
+        expected = head.digest if head is not None else None
+        sealed = (
+            event
+            if event.previous_digest == expected
+            else event.model_copy(update={"previous_digest": expected})
+        )
+        self.events.append(sealed)
+        return sealed
 
-    async def find_by_resource(
-        self, resource_type: str, resource_id: Identifier, limit: int = 100
-    ) -> list[AuditEntry]:
-        """Find audit entries for a resource."""
-        matches = [
-            e
-            for e in self.entries
-            if e.resource_type == resource_type and e.resource_id == resource_id
-        ]
-        return sorted(matches, key=lambda x: x.timestamp, reverse=True)[:limit]
+    async def head(self) -> AuditEvent | None:
+        """Return the most recent event."""
+        return self.events[-1] if self.events else None
 
-    async def find_by_actor(self, actor_id: str, limit: int = 100) -> list[AuditEntry]:
-        """Find audit entries by actor."""
-        matches = [e for e in self.entries if e.actor_id == actor_id]
-        return sorted(matches, key=lambda x: x.timestamp, reverse=True)[:limit]
+    async def find_oldest_first(self, limit: int = 100) -> list[AuditEvent]:
+        """Find stored events oldest first."""
+        return self.events[:limit]
 
-    async def find_recent(self, limit: int = 100) -> list[AuditEntry]:
-        """Find recent audit entries."""
-        return sorted(self.entries, key=lambda x: x.timestamp, reverse=True)[:limit]
+    async def find_by_subject(self, subject: Identifier, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events about one subject."""
+        matches = [event for event in self.events if event.subject == subject]
+        return sorted(matches, key=lambda event: event.occurred_at, reverse=True)[:limit]
+
+    async def find_by_incident(self, incident_id: Identifier, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events recorded against one incident."""
+        matches = [event for event in self.events if event.incident_id == incident_id]
+        return sorted(matches, key=lambda event: event.occurred_at, reverse=True)[:limit]
+
+    async def find_by_actor(self, actor_id: str, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events by actor."""
+        matches = [event for event in self.events if event.actor.actor_id == actor_id]
+        return sorted(matches, key=lambda event: event.occurred_at, reverse=True)[:limit]
+
+    async def find_recent(self, limit: int = 100) -> list[AuditEvent]:
+        """Find recent audit events, newest first."""
+        return sorted(self.events, key=lambda event: event.occurred_at, reverse=True)[:limit]
 
 
 @pytest.fixture
@@ -176,17 +197,17 @@ def sample_evidence() -> Evidence:
 
 
 @pytest.fixture
-def sample_audit_entry() -> AuditEntry:
-    """Create sample audit entry."""
-    return AuditEntry(
-        audit_id="audit-001",
-        timestamp=datetime.now(tz=UTC),
-        actor_type=ActorType.HUMAN,
-        actor_id="user@example.com",
-        action="incident.acknowledge",
-        resource_type="incident",
-        resource_id="INC-2024-001",
-        outcome="success",
+def sample_audit_event() -> AuditEvent:
+    """Create a sample audit event."""
+    return AuditEvent(
+        event_id="AUD-2024-0001",
+        occurred_at=datetime.now(tz=UTC),
+        actor=AuditActor(actor_type=ActorType.HUMAN, actor_id="user@example.com"),
+        event_type=AuditEventType.INCIDENT_TRANSITIONED,
+        subject="INC-2024-001",
+        result=AuditResult.SUCCEEDED,
+        correlation_id="corr-2024-0001",
+        incident_id="INC-2024-001",
     )
 
 
@@ -342,67 +363,115 @@ class TestAuditRepositoryContract:
     """Contract tests for AuditRepository."""
 
     @pytest.mark.asyncio
-    async def test_append_and_retrieve_audit_entry(
-        self, audit_repo: InMemoryAuditRepository, sample_audit_entry: AuditEntry
+    async def test_append_and_retrieve_audit_event(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
     ) -> None:
-        """Test appending and retrieving audit entries."""
-        await audit_repo.append(sample_audit_entry)
+        """Test appending and retrieving audit events."""
+        stored = await audit_repo.append(sample_audit_event)
 
-        entries = await audit_repo.find_recent(limit=10)
+        events = await audit_repo.find_recent(limit=10)
 
-        assert len(entries) == 1
-        assert entries[0].audit_id == sample_audit_entry.audit_id
+        assert len(events) == 1
+        assert events[0].event_id == sample_audit_event.event_id
+        # The first event starts the chain: it must not claim a predecessor.
+        assert stored.previous_digest is None
+        assert await audit_repo.head() == stored
 
     @pytest.mark.asyncio
-    async def test_find_by_resource(
-        self, audit_repo: InMemoryAuditRepository, sample_audit_entry: AuditEntry
+    async def test_append_seals_each_event_onto_the_previous_digest(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
     ) -> None:
-        """Test finding audit entries by resource."""
-        await audit_repo.append(sample_audit_entry)
+        """Each stored event must carry the digest of the event before it."""
+        first = await audit_repo.append(sample_audit_event)
+        second = await audit_repo.append(
+            sample_audit_event.model_copy(update={"event_id": "AUD-2024-0002"})
+        )
 
-        entries = await audit_repo.find_by_resource("incident", "INC-2024-001")
+        assert second.previous_digest == first.digest
 
-        assert len(entries) == 1
-        assert entries[0].resource_id == "INC-2024-001"
+    @pytest.mark.asyncio
+    async def test_find_by_subject(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
+    ) -> None:
+        """Test finding audit events by subject."""
+        await audit_repo.append(sample_audit_event)
+
+        events = await audit_repo.find_by_subject("INC-2024-001")
+
+        assert len(events) == 1
+        assert events[0].subject == "INC-2024-001"
+
+    @pytest.mark.asyncio
+    async def test_find_by_incident(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
+    ) -> None:
+        """Test finding audit events by incident."""
+        await audit_repo.append(sample_audit_event)
+
+        events = await audit_repo.find_by_incident("INC-2024-001")
+
+        assert len(events) == 1
+        assert events[0].incident_id == "INC-2024-001"
 
     @pytest.mark.asyncio
     async def test_find_by_actor(
-        self, audit_repo: InMemoryAuditRepository, sample_audit_entry: AuditEntry
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
     ) -> None:
-        """Test finding audit entries by actor."""
-        await audit_repo.append(sample_audit_entry)
+        """Test finding audit events by actor."""
+        await audit_repo.append(sample_audit_event)
 
-        entries = await audit_repo.find_by_actor("user@example.com")
+        events = await audit_repo.find_by_actor("user@example.com")
 
-        assert len(entries) == 1
-        assert entries[0].actor_id == "user@example.com"
+        assert len(events) == 1
+        assert events[0].actor.actor_id == "user@example.com"
 
     @pytest.mark.asyncio
-    async def test_audit_entries_ordered_by_timestamp(
-        self, audit_repo: InMemoryAuditRepository
+    async def test_audit_events_ordered_by_occurred_at(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
     ) -> None:
-        """Test that audit entries are returned in timestamp order."""
+        """Test that audit events are returned newest first."""
         now = datetime.now(tz=UTC)
 
         for i in range(3):
-            entry = AuditEntry(
-                audit_id=f"audit-{i:03d}",
-                timestamp=now - timedelta(minutes=i),
-                actor_type=ActorType.AGENT,
-                actor_id="agent",
-                action=f"action-{i}",
-                resource_type="test",
-                resource_id=f"resource-{i}",
-                outcome="success",
+            await audit_repo.append(
+                sample_audit_event.model_copy(
+                    update={
+                        "event_id": f"AUD-2024-000{i}",
+                        "occurred_at": now - timedelta(minutes=i),
+                    }
+                )
             )
-            await audit_repo.append(entry)
 
-        entries = await audit_repo.find_recent()
+        events = await audit_repo.find_recent()
 
         # Should be in reverse chronological order
-        assert entries[0].audit_id == "audit-000"
-        assert entries[1].audit_id == "audit-001"
-        assert entries[2].audit_id == "audit-002"
+        assert events[0].event_id == "AUD-2024-0000"
+        assert events[1].event_id == "AUD-2024-0001"
+        assert events[2].event_id == "AUD-2024-0002"
+
+    @pytest.mark.asyncio
+    async def test_find_oldest_first_returns_chain_order(
+        self, audit_repo: InMemoryAuditRepository, sample_audit_event: AuditEvent
+    ) -> None:
+        """The chain can only be re-walked in the order events were appended."""
+        now = datetime.now(tz=UTC)
+        for i in range(3):
+            await audit_repo.append(
+                sample_audit_event.model_copy(
+                    update={
+                        "event_id": f"AUD-2024-010{i}",
+                        "occurred_at": now + timedelta(minutes=i),
+                    }
+                )
+            )
+
+        ordered = await audit_repo.find_oldest_first()
+
+        assert [event.event_id for event in ordered] == [
+            "AUD-2024-0100",
+            "AUD-2024-0101",
+            "AUD-2024-0102",
+        ]
 
 
 class TestRepositoryLimits:

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Any
 
-from packages.contracts.audit import AuditEntry
+from packages.contracts.audit import AuditEvent
 from packages.contracts.common import Identifier
 from packages.contracts.evidence import Evidence
 from packages.contracts.incidents import Incident
@@ -110,28 +111,47 @@ class RemediationRepository(ABC):
 
 
 class AuditRepository(ABC):
-    """Repository for audit log entries."""
+    """Repository for the append-only audit trail.
+
+    The interface mirrors :class:`packages.governance.audit.AuditLog` in the fields it exposes, but it is
+    asynchronous because the trail is stored in the same database as the aggregates it describes. Appending
+    returns the stored event: a store that seals an event onto the chain (setting ``previous_digest``)
+    reports the sealed record back to the writer rather than leaving the caller with a stale copy.
+    """
 
     @abstractmethod
-    async def append(self, entry: AuditEntry) -> None:
-        """Append an audit entry (insert-only)."""
+    async def append(self, event: AuditEvent) -> AuditEvent:
+        """Append an audit event (insert-only) and return the stored record."""
         ...
 
     @abstractmethod
-    async def find_by_resource(
-        self, resource_type: str, resource_id: Identifier, limit: int = 100
-    ) -> list[AuditEntry]:
-        """Find audit entries for a resource."""
+    async def head(self) -> AuditEvent | None:
+        """Return the most recent event, or ``None`` when the trail is empty."""
         ...
 
     @abstractmethod
-    async def find_by_actor(self, actor_id: str, limit: int = 100) -> list[AuditEntry]:
-        """Find audit entries by actor."""
+    async def find_oldest_first(self, limit: int = 100) -> list[AuditEvent]:
+        """Find stored events oldest first, so the hash chain can be re-walked."""
         ...
 
     @abstractmethod
-    async def find_recent(self, limit: int = 100) -> list[AuditEntry]:
-        """Find recent audit entries."""
+    async def find_by_subject(self, subject: Identifier, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events about one subject (an incident id, a proposal id, ...)."""
+        ...
+
+    @abstractmethod
+    async def find_by_incident(self, incident_id: Identifier, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events recorded against one incident."""
+        ...
+
+    @abstractmethod
+    async def find_by_actor(self, actor_id: str, limit: int = 100) -> list[AuditEvent]:
+        """Find audit events by actor."""
+        ...
+
+    @abstractmethod
+    async def find_recent(self, limit: int = 100) -> list[AuditEvent]:
+        """Find recent audit events, newest first."""
         ...
 
 
@@ -153,13 +173,16 @@ class IdempotencyRepository(ABC):
 
     @abstractmethod
     async def record_result(
-        self, key: Identifier, resource_id: Identifier, response: dict | None = None
+        self,
+        key: Identifier,
+        resource_id: Identifier,
+        response: dict[str, Any] | None = None,
     ) -> None:
         """Record the result for an idempotency key."""
         ...
 
     @abstractmethod
-    async def get_result(self, key: Identifier) -> dict | None:
+    async def get_result(self, key: Identifier) -> dict[str, Any] | None:
         """Retrieve cached result for an idempotency key."""
         ...
 
