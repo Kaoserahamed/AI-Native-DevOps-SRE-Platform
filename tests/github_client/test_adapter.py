@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import httpx
 import pytest
 
 from packages.github_client.adapter import GitHubAdapter, GitHubConfig
@@ -20,9 +21,9 @@ def github_config() -> GitHubConfig:
 
 
 @pytest.fixture
-def adapter(github_config: GitHubConfig) -> GitHubAdapter:
-    """Return a GitHub adapter instance."""
-    return GitHubAdapter(github_config)
+def adapter(github_config: GitHubConfig, offline_github_client: httpx.AsyncClient) -> GitHubAdapter:
+    """Return a GitHub adapter bound to the offline GitHub transport."""
+    return GitHubAdapter(github_config, client=offline_github_client)
 
 
 @pytest.mark.unit

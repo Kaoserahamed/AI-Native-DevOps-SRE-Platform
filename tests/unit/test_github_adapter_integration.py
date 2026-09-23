@@ -378,11 +378,14 @@ async def test_get_check_runs_in_progress(adapter: GitHubAdapter) -> None:
 @pytest.mark.asyncio
 async def test_adapter_context_manager(github_config: GitHubConfig) -> None:
     """Test using the adapter as a context manager."""
-    async with GitHubAdapter(github_config) as adapter:
-        assert adapter._client is None  # Not created until first use
+    adapter = GitHubAdapter(github_config)
+    async with adapter:
+        client_created_on_first_use = adapter._client
+        assert client_created_on_first_use is None  # Not created until first use
 
-    # Client should be closed after exiting context
-    assert adapter._client is None or adapter._client.is_closed
+    # Client should be closed (or never created) after exiting context
+    client = adapter._client
+    assert client is None or client.is_closed
 
 
 @pytest.mark.asyncio

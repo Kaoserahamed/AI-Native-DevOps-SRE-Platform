@@ -128,17 +128,23 @@ class RemediationPRData:
 class GitHubAdapter:
     """Adapter for GitHub API operations with least-privilege permissions."""
 
-    def __init__(self, config: GitHubConfig) -> None:
+    def __init__(self, config: GitHubConfig, client: httpx.AsyncClient | None = None) -> None:
         """Initialize GitHub adapter.
 
         Parameters
         ----------
         config
             GitHub configuration with token and repository details
+        client
+            Optional HTTP client the adapter adopts instead of creating its own. Injecting a client is
+            what keeps the adapter testable without network access: a test binds an
+            ``httpx.MockTransport`` to a real ``httpx.AsyncClient`` and passes it here, so the
+            request-building and response-parsing code under test is the production code path. The
+            adapter owns the client it is given and closes it in :meth:`close`.
         """
         self.config = config
         self._validate_config()
-        self._client: httpx.AsyncClient | None = None
+        self._client: httpx.AsyncClient | None = client
 
     def _validate_config(self) -> None:
         """Validate configuration is complete."""
@@ -158,7 +164,7 @@ class GitHubAdapter:
         return headers
 
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client."""
+        """Get the HTTP client, creating one on first use when none was injected."""
         if self._client is None:
             self._client = httpx.AsyncClient(
                 base_url=self.config.api_base_url,
