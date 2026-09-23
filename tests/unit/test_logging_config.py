@@ -1,46 +1,90 @@
 """Tests for structured logging configuration."""
 
-import logging
+from __future__ import annotations
+
+from collections.abc import Iterator
+from contextlib import contextmanager
+from itertools import count
+from typing import Any
 from unittest import mock
 
-import pytest
 import structlog
 
 from packages.observability.logging_config import (
-    configure_logging,
-    get_logger,
+    _sentry_before_send,
     bind_correlation_id,
     bind_trace_context,
+    configure_logging,
+    get_logger,
     unbind_context,
-    _sentry_before_send,
 )
+
+
+@contextmanager
+def capture_processor_output(
+    *, level: str = "INFO", environment: str = "production", service_name: str = "test-service"
+) -> Iterator[tuple[structlog.stdlib.BoundLogger, dict[str, Any]]]:
+    """Configure logging, then capture the event dict structlog hands to the renderer.
+
+    Intercepting the final processor is the only way to assert on the real output without parsing
+    strings: it observes exactly the payload the JSON/console renderer would print. Each call gets a
+    freshly named logger, because ``cache_logger_on_first_use`` pins a processor chain to a logger
+    name for the life of the process.
+    """
+    captured: dict[str, Any] = {}
+    original_configure = structlog.configure
+
+    def configure_with_capture(**kwargs: Any) -> None:
+        processors = list(kwargs["processors"])
+        renderer = processors.pop()
+        captured["renderer"] = renderer
+
+        def capture_event(_logger: Any, _method: str, event_dict: dict[str, Any]) -> Any:
+            # Record the event as the renderer sees it, then delegate so the chain still produces the
+            # string that stdlib ``logging`` expects as its message.
+            captured.update(event_dict)
+            return renderer(_logger, _method, event_dict)
+
+        processors.append(capture_event)
+        original_configure(**{**kwargs, "processors": processors})
+
+    with mock.patch.object(structlog, "configure", configure_with_capture):
+        configure_logging(level=level, environment=environment, service_name=service_name)
+        yield get_logger(f"capture-{next(_logger_names)}"), captured
+
+
+_logger_names = count()
 
 
 def test_configure_logging_development() -> None:
     """Test logging configuration in development mode."""
-    configure_logging(
-        level="DEBUG",
-        service_name="test-service",
-        environment="development",
-        enable_sentry=False,
-    )
+    with capture_processor_output(level="DEBUG", environment="development") as (logger, captured):
+        logger.info("hello")
 
-    logger = get_logger(__name__)
-    assert logger is not None
-    assert isinstance(logger, structlog.BoundLogger)
+    assert isinstance(captured["renderer"], structlog.dev.ConsoleRenderer)
+    assert captured["event"] == "hello"
+    assert captured["level"] == "info"
+    assert captured["service"] == "test-service"
 
 
 def test_configure_logging_production() -> None:
     """Test logging configuration in production mode with JSON output."""
-    configure_logging(
-        level="INFO",
-        service_name="test-service",
-        environment="production",
-        enable_sentry=False,
-    )
+    with capture_processor_output(level="INFO", environment="production") as (_, captured):
+        pass
 
-    logger = get_logger(__name__)
-    assert logger is not None
+    assert isinstance(captured["renderer"], structlog.processors.JSONRenderer)
+
+
+def test_production_logs_render_as_json() -> None:
+    """A production event must render to a single JSON object carrying the service name."""
+    import json
+
+    configure_logging(level="INFO", service_name="test-service", environment="production")
+    renderer = structlog.processors.JSONRenderer()
+    rendered = renderer(None, "info", {"event": "boot", "service": "test-service"})
+
+    payload = json.loads(rendered)
+    assert payload == {"event": "boot", "service": "test-service"}
 
 
 def test_get_logger() -> None:
@@ -48,8 +92,9 @@ def test_get_logger() -> None:
     configure_logging(service_name="test-service")
     logger = get_logger("test_module")
 
+    # structlog hands out a lazy proxy that realises into the stdlib-bound logger on first use.
     assert logger is not None
-    assert isinstance(logger, structlog.BoundLogger)
+    assert isinstance(logger.bind(), structlog.stdlib.BoundLogger)
 
 
 def test_bind_correlation_id() -> None:
@@ -175,18 +220,56 @@ def test_configure_logging_with_sentry(mock_sentry: mock.Mock) -> None:
     assert call_kwargs["environment"] == "production"
     assert call_kwargs["send_default_pii"] is False
     assert call_kwargs["attach_stacktrace"] is True
+    # Production must sample, and the "before_send" hook has to be the PII filter.
+    assert call_kwargs["traces_sample_rate"] == 0.1
+    assert call_kwargs["before_send"] is _sentry_before_send
+
+
+@mock.patch("packages.observability.logging_config.sentry_sdk")
+def test_configure_logging_with_sentry_never_logs_the_dsn_key(mock_sentry: mock.Mock) -> None:
+    """The Sentry project key must not reach the logs when tracking is enabled."""
+    sentry_dsn = "https://secret-project-key@sentry.io/456789"
+
+    with mock.patch("packages.observability.logging_config.logger") as mock_logger:
+        configure_logging(
+            level="INFO",
+            service_name="test-service",
+            environment="production",
+            enable_sentry=True,
+            sentry_dsn=sentry_dsn,
+        )
+        log_events = [str(call.args[0]) % call.args[1:] for call in mock_logger.info.call_args_list]
+
+    assert log_events, "enabling Sentry should record which host was contacted"
+    assert all("secret-project-key" not in message for message in log_events)
+    assert any("sentry.io" in message for message in log_events)
 
 
 def test_configure_logging_without_sentry() -> None:
-    """Test that missing Sentry SDK is handled gracefully."""
-    with mock.patch.dict("sys.modules", {"sentry_sdk": None}):
-        # Should not raise even if sentry_sdk not installed
+    """Test that a missing Sentry SDK is handled gracefully."""
+    with mock.patch("packages.observability.logging_config.sentry_sdk", None):
+        # Should not raise even if sentry_sdk is not installed
         configure_logging(
             level="INFO",
             service_name="test-service",
             enable_sentry=True,
             sentry_dsn="https://test@sentry.io/123",
         )
+
+
+def test_configure_logging_survives_sentry_init_failure() -> None:
+    """A broken Sentry configuration must not stop the service from starting."""
+    with mock.patch("packages.observability.logging_config.sentry_sdk") as mock_sentry:
+        mock_sentry.init.side_effect = RuntimeError("invalid dsn")
+
+        configure_logging(
+            level="INFO",
+            service_name="test-service",
+            enable_sentry=True,
+            sentry_dsn="not-a-dsn",
+        )
+
+    mock_sentry.init.assert_called_once()
 
 
 def test_logging_levels() -> None:
@@ -198,46 +281,38 @@ def test_logging_levels() -> None:
 
 
 def test_structured_log_output() -> None:
-    """Test that structured logging produces expected output."""
-    configure_logging(
-        level="INFO",
-        service_name="test-service",
-        environment="production",
-    )
+    """Test that structured logging produces the keys callers attached."""
+    with capture_processor_output(level="INFO", environment="production") as (logger, captured):
+        logger.info("test_message", key="value", count=42)
 
-    logger = get_logger(__name__)
-
-    # This should produce JSON output in production mode
-    logger.info("test_message", key="value", count=42)
-
-    # Actual assertion would require capturing output
-    # For now, just verify it doesn't raise
+    assert captured["event"] == "test_message"
+    assert captured["key"] == "value"
+    assert captured["count"] == 42
 
 
 def test_correlation_id_propagation() -> None:
-    """Test that correlation ID propagates to all log messages."""
-    configure_logging(service_name="test-service")
+    """Test that the correlation ID reaches every event logged in the bound context."""
+    unbind_context()
 
-    correlation_id = "req-abc-123"
-    bind_correlation_id(correlation_id)
+    with capture_processor_output(environment="production") as (logger, captured):
+        bind_correlation_id("req-abc-123")
+        logger.info("test_with_correlation")
 
-    logger = get_logger(__name__)
-    logger.info("test_with_correlation")
+    assert captured["correlation_id"] == "req-abc-123"
 
-    # In practice, the correlation_id would appear in the output
     unbind_context()
 
 
 def test_trace_context_propagation() -> None:
-    """Test that trace context propagates to logs."""
-    configure_logging(service_name="test-service")
+    """Test that OpenTelemetry trace context reaches the log event."""
+    unbind_context()
 
-    trace_id = "0123456789abcdef"
-    span_id = "fedcba9876543210"
-    bind_trace_context(trace_id, span_id)
+    with capture_processor_output(environment="production") as (logger, captured):
+        bind_trace_context("0123456789abcdef", "fedcba9876543210")
+        logger.info("test_with_trace")
 
-    logger = get_logger(__name__)
-    logger.info("test_with_trace")
+    assert captured["trace_id"] == "0123456789abcdef"
+    assert captured["span_id"] == "fedcba9876543210"
 
     unbind_context()
 

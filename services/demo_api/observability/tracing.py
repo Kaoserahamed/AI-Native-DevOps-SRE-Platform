@@ -101,9 +101,7 @@ async def database_span(operation: str, **attributes: Any) -> AsyncIterator[trac
     check) so database time is visible inside the parent HTTP span.
     """
     tracer = get_tracer("demo-api.database")
-    with tracer.start_as_current_span(
-        f"db.{operation}", kind=SpanKind.CLIENT
-    ) as span:
+    with tracer.start_as_current_span(f"db.{operation}", kind=SpanKind.CLIENT) as span:
         span.set_attribute("db.system", "postgresql")
         span.set_attribute("db.operation", operation)
         for key, value in attributes.items():
@@ -120,9 +118,7 @@ async def database_span(operation: str, **attributes: Any) -> AsyncIterator[trac
 async def redis_span(operation: str, **attributes: Any) -> AsyncIterator[trace.Span]:
     """Create a CLIENT span for a Redis operation (``get``, ``set``, ...)."""
     tracer = get_tracer("demo-api.redis")
-    with tracer.start_as_current_span(
-        f"redis.{operation}", kind=SpanKind.CLIENT
-    ) as span:
+    with tracer.start_as_current_span(f"redis.{operation}", kind=SpanKind.CLIENT) as span:
         span.set_attribute("db.system", "redis")
         span.set_attribute("db.operation", operation)
         for key, value in attributes.items():

@@ -41,9 +41,8 @@ async def _check_readiness() -> dict[str, Any]:
     # Database check
     try:
         factory = get_session_factory()
-        async with timed_db_operation("health"):
-            async with factory() as session:
-                await session.execute(text("SELECT 1"))
+        async with timed_db_operation("health"), factory() as session:
+            await session.execute(text("SELECT 1"))
         checks["database"] = True
     except Exception:
         checks["database"] = False

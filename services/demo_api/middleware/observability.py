@@ -114,17 +114,11 @@ class ObservabilityMiddleware:
             in_flight_requests.dec()
             endpoint = _normalise_endpoint(scope)
             code = str(status_code)
-            http_requests_total.labels(
-                method=method, endpoint=endpoint, status_code=code
-            ).inc()
+            http_requests_total.labels(method=method, endpoint=endpoint, status_code=code).inc()
             http_request_duration_seconds.labels(
                 method=method, endpoint=endpoint, status_code=code
             ).observe(duration)
             if status_code >= 500:
-                http_server_errors_total.labels(
-                    method=method, endpoint=endpoint
-                ).inc()
+                http_server_errors_total.labels(method=method, endpoint=endpoint).inc()
             elif status_code >= 400:
-                http_client_errors_total.labels(
-                    method=method, endpoint=endpoint
-                ).inc()
+                http_client_errors_total.labels(method=method, endpoint=endpoint).inc()

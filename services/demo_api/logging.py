@@ -19,9 +19,9 @@ class CorrelationFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Inject the correlation ID and the current trace/span IDs."""
-        from services.demo_api.middleware.correlation import get_correlation_id
-
         from opentelemetry import trace
+
+        from services.demo_api.middleware.correlation import get_correlation_id
 
         correlation_id = get_correlation_id()
         record.correlation_id = correlation_id or "none"

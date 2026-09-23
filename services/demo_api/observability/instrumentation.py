@@ -32,9 +32,9 @@ async def timed_db_operation(operation: str) -> AsyncIterator[None]:
         ).inc()
         raise
     finally:
-        metrics.demo_api_database_query_duration_seconds.labels(
-            operation=operation
-        ).observe(time.perf_counter() - start)
+        metrics.demo_api_database_query_duration_seconds.labels(operation=operation).observe(
+            time.perf_counter() - start
+        )
 
 
 @asynccontextmanager
@@ -51,6 +51,6 @@ async def timed_redis_operation(operation: str) -> AsyncIterator[None]:
         ).inc()
         raise
     finally:
-        metrics.demo_api_redis_operation_duration_seconds.labels(
-            operation=operation
-        ).observe(time.perf_counter() - start)
+        metrics.demo_api_redis_operation_duration_seconds.labels(operation=operation).observe(
+            time.perf_counter() - start
+        )
