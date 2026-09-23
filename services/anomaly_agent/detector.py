@@ -287,8 +287,33 @@ class AnomalyDetector:
         self, point: TimeSeriesPoint, baseline: RollingBaseline
     ) -> Anomaly | None:
         """Check for statistical outliers using z-score."""
+        # A perfectly flat baseline still has an expected value, and a value far away from it is
+        # exactly the case a z-score cannot describe (the deviation is infinite). Fall back to a
+        # relative-deviation check rather than reporting nothing: a service locked at a constant
+        # latency that suddenly jumps is the most obvious incident there is.
         if baseline.stddev == 0:
-            return None
+            if baseline.mean == 0:
+                return None
+            relative_change = abs(point.value - baseline.mean) / abs(baseline.mean)
+            if relative_change < self.rate_change_threshold:
+                return None
+            return Anomaly(
+                anomaly_id=f"anomaly-{point.metric_name}-{point.timestamp.isoformat()}",
+                metric_name=point.metric_name,
+                anomaly_type=AnomalyType.STATISTICAL_OUTLIER,
+                severity=self._calculate_severity(relative_change),
+                detected_at=point.timestamp,
+                current_value=point.value,
+                expected_value=baseline.mean,
+                deviation=relative_change,
+                confidence=min(0.9, relative_change),
+                context={
+                    "z_score": None,
+                    "baseline_mean": baseline.mean,
+                    "baseline_stddev": baseline.stddev,
+                    "labels": point.labels,
+                },
+            )
 
         z_score = abs(point.value - baseline.mean) / baseline.stddev
 
@@ -428,14 +453,18 @@ class AnomalyDetector:
         # Sort by timestamp
         sorted_anomalies = sorted(anomalies, key=lambda a: a.detected_at)
 
-        # Group anomalies within time window
+        # Group anomalies that fall inside one window of the group's *first* anomaly. Anchoring on
+        # the group start (rather than on the previous anomaly) keeps a group bounded: a slow drift
+        # of one anomaly every window/2 would otherwise chain into a single group spanning hours,
+        # which is not a correlation an operator can act on. The comparison is strict, so an anomaly
+        # exactly ``window`` after the anchor starts the next group.
         groups: list[list[Anomaly]] = []
         current_group: list[Anomaly] = [sorted_anomalies[0]]
 
         for anomaly in sorted_anomalies[1:]:
-            time_diff = anomaly.detected_at - current_group[-1].detected_at
+            time_diff = anomaly.detected_at - current_group[0].detected_at
 
-            if time_diff <= window:
+            if time_diff < window:
                 current_group.append(anomaly)
             else:
                 groups.append(current_group)
