@@ -63,19 +63,19 @@ Issues = "https://github.com/Kaoserahamed/AI-Native-DevOps-SRE-Platform/issues"
 dev = [
   "jsonschema==4.26.0",
   "httpx==0.28.1",
-  "respx==0.22.0",
+  "respx==0.23.1",
   "mypy==2.3.1",
-  "types-jsonschema==4.25.0.20250809",
+  "types-jsonschema==4.26.0.20260518",
   "pre-commit==4.6.2",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
-  "aiosqlite==0.20.0",
+  "aiosqlite==0.22.1",
   "ruff==0.16.8",
   "pyyaml==6.0.3",
   "types-pyyaml==6.0.12.20260906",
-  "pip-audit==2.8.0",
-  "sentry-sdk==2.23.1",
+  "pip-audit==2.10.1",
+  "sentry-sdk==2.69.2",
 ]
 
 [tool.hatch.build.targets.wheel]
